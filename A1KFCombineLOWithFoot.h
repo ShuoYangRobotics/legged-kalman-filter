@@ -27,7 +27,7 @@
                      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
                 
  */
-#define STATE_SIZE 22
+#define EKF_STATE_SIZE 22
 #define CONTROL_SIZE 7
 #define OBSERVATION_SIZE 24   
 
@@ -42,38 +42,38 @@ class A1KFCombineLOWithFoot : public A1KF {
         void update_filter(A1SensorData data);
         void update_filter_with_opti(A1SensorData data);
 
-        Eigen::Matrix<double, STATE_SIZE,1> get_state() {return curr_state;}
+        Eigen::Matrix<double, EKF_STATE_SIZE,1> get_state() {return curr_state;}
 
     private:
         void load_casadi_functions();
-        void process(Eigen::Matrix<double, STATE_SIZE, 1> state, 
+        void process(Eigen::Matrix<double, EKF_STATE_SIZE, 1> state, 
                                                      Eigen::Matrix<double, CONTROL_SIZE, 1> prev_ctrl, 
                                                      Eigen::Matrix<double, CONTROL_SIZE, 1> ctrl, double dt);
 
-        void measure(Eigen::Matrix<double, STATE_SIZE, 1> state, 
+        void measure(Eigen::Matrix<double, EKF_STATE_SIZE, 1> state, 
                                                      Eigen::Matrix<double, 3, 1> w, 
                                                      Eigen::Matrix<double, 12, 1> joint_ang, 
                                                      Eigen::Matrix<double, 12, 1> joint_vel);                                             
-        Eigen::Matrix<double, STATE_SIZE, 1>   curr_state;                  
-        Eigen::Matrix<double, STATE_SIZE, STATE_SIZE>   curr_covariance;
+        Eigen::Matrix<double, EKF_STATE_SIZE, 1>   curr_state;                  
+        Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>   curr_covariance;
 
-        Eigen::Matrix<double, STATE_SIZE, 1>   x01;           // intermediate state
-        Eigen::Matrix<double, STATE_SIZE, STATE_SIZE>   process_jacobian;  // intermediate covariance
-        Eigen::Matrix<double, STATE_SIZE, STATE_SIZE>   P01;  // intermediate covariance
+        Eigen::Matrix<double, EKF_STATE_SIZE, 1>   x01;           // intermediate state
+        Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>   process_jacobian;  // intermediate covariance
+        Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>   P01;  // intermediate covariance
 
 
         Eigen::Matrix<double, OBSERVATION_SIZE, 1>             measurement;  
-        Eigen::Matrix<double, OBSERVATION_SIZE, STATE_SIZE>    measurement_jacobian;  
+        Eigen::Matrix<double, OBSERVATION_SIZE, EKF_STATE_SIZE>    measurement_jacobian;  
 
         Eigen::Matrix<double, CONTROL_SIZE, 1> prev_ctrl;
         Eigen::Matrix<double, CONTROL_SIZE, 1> curr_ctrl;
 
-        Eigen::Matrix<double, STATE_SIZE, STATE_SIZE>   process_noise;
+        Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>   process_noise;
         Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE>   measure_noise;
 
 
         // optitrack related 
-        Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, STATE_SIZE> opti_jacobian;
+        Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, EKF_STATE_SIZE> opti_jacobian;
         Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, OPTI_OBSERVATION_SIZE> opti_noise;
 
         std::mutex update_mutex;

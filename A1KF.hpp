@@ -15,15 +15,15 @@ class A1SensorData {
     public:
         A1SensorData() {
             for (int i = 0; i < 3; ++i) {
-                acc_filter[i] = MovingWindowFilter(40);
-                ang_vel_filter[i] = MovingWindowFilter(40);
+                acc_filter[i] = MovingWindowFilter(5);
+                ang_vel_filter[i] = MovingWindowFilter(5);
 
                 opti_pos_filter[i] = MovingWindowFilter(10);
                 opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
             for (int i = 0; i < NUM_DOF; ++i) {
-                joint_pos_filter[i] = MovingWindowFilter(15);
-                joint_vel_filter[i] = MovingWindowFilter(15);
+                joint_pos_filter[i] = MovingWindowFilter(5);
+                joint_vel_filter[i] = MovingWindowFilter(5);
                 joint_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
             dt = 0.002;  // because hardware_imu is at 500Hz

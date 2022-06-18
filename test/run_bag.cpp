@@ -14,13 +14,13 @@
 
 // control parameters
 #include "../../A1Params.h"
-#include "../A1KFCombineLO.h"
+// #include "../A1KFCombineLO.h"
 // #include "../A1KFSeparateLO.h"
-// #include "../A1KFCombineLOWithFoot.h"
+#include "../A1KFCombineLOWithFoot.h"
 
-A1KFCombineLO kf;  // Kalman filter Baseline 1
+// A1KFCombineLO kf;  // Kalman filter Baseline 1
 // A1KFSeparateLO kf;  // Kalman filter Baseline 2 separate leg odometry velocites
-// A1KFCombineLOWithFoot kf;  // Kalman filter Baseline 3 with foot
+A1KFCombineLOWithFoot kf;  // Kalman filter Baseline 3 with foot
 
 A1SensorData data;
 double curr_t;
@@ -97,7 +97,7 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
     filterd_imu_pub.publish(filterd_imu_msg);
     filterd_joint_pub.publish(filterd_joint_msg);
 
-    Eigen::Matrix<double, STATE_SIZE,1> kf_state = kf.get_state();
+    Eigen::Matrix<double, EKF_STATE_SIZE,1> kf_state = kf.get_state();
     nav_msgs::Odometry filterd_pos_msg;
     filterd_pos_msg.header.stamp = ros::Time::now();
     filterd_pos_msg.pose.pose.position.x = kf_state[0];
@@ -198,7 +198,7 @@ int main(int argc, char **argv) {
     ros::Rate loop_rate(100);
     while (ros::ok()) {
         // Eigen::Matrix<double, 10,1> est_state = kf.get_state();
-        Eigen::Matrix<double, STATE_SIZE,1> est_state = kf.get_state();
+        Eigen::Matrix<double, EKF_STATE_SIZE,1> est_state = kf.get_state();
         // std::cout << "est_state: " << est_state.transpose() << std::endl;
         // save position to a csv file
         myFile << est_state[0] << "," << est_state[1] << "," << est_state[2] << "\n";
