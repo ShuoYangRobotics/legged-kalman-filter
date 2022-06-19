@@ -35,7 +35,7 @@ void A1KFCombineLO::init_filter(A1SensorData data) {
     opti_jacobian.block<6,6>(0,0) = Eigen::Matrix<double,6,6>::Identity();
     opti_noise.setZero();
     opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*0.02; //opti_pos
-    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.002; // opti_vel
+    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.02; // opti_vel
 }
 
 
@@ -107,15 +107,15 @@ void A1KFCombineLO::update_filter_with_opti(A1SensorData data) {
 
     Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, 1> invSy = S.fullPivHouseholderQr().solve(opti_residual);
     
-    // outlier rejection
-    double mahalanobis_distance = opti_residual.transpose()*invSy;
-    if (mahalanobis_distance < 0.03) {
+    // // outlier rejection
+    // double mahalanobis_distance = opti_residual.transpose()*invSy;
+    // if (mahalanobis_distance < 1) {
         Eigen::Matrix<double, EKF_STATE_SIZE, 1> Ky = curr_covariance*opti_jacobian.transpose()*invSy;
         curr_state += Ky;      
         Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, EKF_STATE_SIZE>  invSH = S.fullPivHouseholderQr().solve(opti_jacobian);
 
         curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - curr_covariance*opti_jacobian.transpose()*invSH)*curr_covariance;  
-    }
+    // }
 }
 
 
