@@ -14,13 +14,18 @@
 
 // control parameters
 #include "../../A1Params.h"
-#include "../A1KFCombineLO.h"
-// #include "../A1KFSeparateLO.h"
-// #include "../A1KFCombineLOWithFoot.h"
 
-A1KFCombineLO kf;  // Kalman filter Baseline 1
+/* only include one of the following three */
+
+// #include "../A1KFCombineLO.h"
+// A1KFCombineLO kf;  // Kalman filter Baseline 1
+
+// #include "../A1KFSeparateLO.h"
 // A1KFSeparateLO kf;  // Kalman filter Baseline 2 separate leg odometry velocites
-// A1KFCombineLOWithFoot kf;  // Kalman filter Baseline 3 with foot
+
+#include "../A1KFCombineLOWithFoot.h"
+A1KFCombineLOWithFoot kf;  // Kalman filter Baseline 3 with foot
+
 
 A1SensorData data;
 double curr_t;
@@ -138,7 +143,7 @@ void opti_callback(const geometry_msgs::PoseStamped::ConstPtr& opti_msg) {
         opti_pos << opti_msg->pose.position.x, opti_msg->pose.position.y, opti_msg->pose.position.z;
         data.input_opti_pos(opti_pos);
         //update KF
-        kf.update_filter_with_opti(data);
+        // kf.update_filter_with_opti(data);
     }
 
     // debug print

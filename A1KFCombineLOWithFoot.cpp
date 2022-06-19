@@ -86,9 +86,9 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
 
 
     process_noise.diagonal().segment<2>(0) = 0.001*data.dt/20.0*Eigen::Vector2d::Ones();           // pos x y
-    process_noise.diagonal()(2) = 0.001* data.dt / 20.0;                                             // pos z
+    process_noise.diagonal()(2) = 0.01* data.dt / 20.0;                                             // pos z
     process_noise.diagonal().segment<2>(3) = 0.01 * data.dt * 9.8 / 20.0*Eigen::Vector2d::Ones();  // vel x y
-    process_noise.diagonal()(5) = 0.01 * data.dt * 9.8 / 20.0;                                       // vel z
+    process_noise.diagonal()(5) = 0.1 * data.dt * 9.8 / 20.0;                                       // vel z
     process_noise.diagonal().segment<3>(6) = 1e-6*Eigen::Vector3d::Ones();
 
     // adjust noise according to contact 

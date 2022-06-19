@@ -148,14 +148,14 @@ void A1KFSeparateLO::update_filter_with_opti(A1SensorData data) {
     Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, 1> invSy = S.fullPivHouseholderQr().solve(opti_residual);
     
     // outlier rejection
-    double mahalanobis_distance = opti_residual.transpose()*invSy;
-    if (mahalanobis_distance < 0.03) {
+    // double mahalanobis_distance = opti_residual.transpose()*invSy;
+    // if (mahalanobis_distance < 0.03) {
         Eigen::Matrix<double, EKF_STATE_SIZE, 1> Ky = curr_covariance*opti_jacobian.transpose()*invSy;
         curr_state += Ky;      
         Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, EKF_STATE_SIZE>  invSH = S.fullPivHouseholderQr().solve(opti_jacobian);
 
         curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - curr_covariance*opti_jacobian.transpose()*invSH)*curr_covariance;  
-    }
+    // }
 }
 
 
