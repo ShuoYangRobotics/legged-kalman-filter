@@ -70,8 +70,8 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData data, Eigen::Vector3d _init
     opti_jacobian.setZero();
     opti_jacobian.block<6,6>(0,0) = Eigen::Matrix<double,6,6>::Identity();
     opti_noise.setZero();
-    opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*0.002; //opti_pos
-    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.002; // opti_vel
+    opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*0.02; //opti_pos
+    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.02; // opti_vel
 }
 
 
@@ -84,8 +84,8 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
     process(curr_state, prev_ctrl, curr_ctrl, data.dt);
 
 
-    process_noise.diagonal().segment<2>(0) = 0.001*data.dt/20.0*Eigen::Vector2d::Ones();           // pos x y
-    process_noise.diagonal()(2) = 0.01* data.dt / 20.0;                                             // pos z
+    process_noise.diagonal().segment<2>(0) = 0.0001*data.dt/20.0*Eigen::Vector2d::Ones();           // pos x y
+    process_noise.diagonal()(2) = 0.001* data.dt / 20.0;                                             // pos z
     process_noise.diagonal().segment<2>(3) = 0.01 * data.dt * 9.8 / 20.0*Eigen::Vector2d::Ones();  // vel x y
     process_noise.diagonal()(5) = 0.1 * data.dt * 9.8 / 20.0;                                       // vel z
     process_noise.diagonal().segment<3>(6) = 1e-6*Eigen::Vector3d::Ones();
@@ -137,7 +137,7 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
         suby = measurement.segment<3>(i*6+3);
         invSy = subS.fullPivHouseholderQr().solve(suby);
         mahalanobis_distance = suby.transpose()*invSy;
-        if (mahalanobis_distance < 1) {
+        if (mahalanobis_distance < 0.5) {
             vel_mask[i] = true;
             total_vel++;
         } else {
