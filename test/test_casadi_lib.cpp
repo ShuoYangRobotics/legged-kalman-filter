@@ -1,4 +1,5 @@
-#include "../../utils/Utils.h"
+#include <Eigen/Dense>
+#include <iostream>
 #include <casadi/casadi.hpp>
 
 bool almost_equal(double a, double b, double epsilon) {

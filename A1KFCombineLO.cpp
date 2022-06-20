@@ -8,9 +8,8 @@ A1KFCombineLO::A1KFCombineLO(): A1KF() {
     KF_initialized = false;
 }
 
-void A1KFCombineLO::init_filter(A1SensorData data) {
-    //TODO: initialize curr_state pos with some nonzero values
-    Eigen::Vector3d init_pos = Eigen::Vector3d(0,0,0.15);
+void A1KFCombineLO::init_filter(A1SensorData data, Eigen::Vector3d _init_pos) {
+    Eigen::Vector3d init_pos = _init_pos;
     curr_state = Eigen::Matrix<double, EKF_STATE_SIZE, 1>::Zero();
     curr_state.segment<3>(0) = init_pos;
     curr_covariance = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity()*0.01;

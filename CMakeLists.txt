@@ -21,7 +21,7 @@ add_library(kf_lib
 # compile casadi_lib
 execute_process(
         COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/casadi_lib/compile_casadi.sh
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/casadi_lib
 )
 
 
@@ -41,8 +41,9 @@ target_link_libraries(test_casadi_lib
         casadi
 )
 
-add_executable(test_rotation_utils test/test_rotations.cpp
-
-        ../utils/Utils.cpp
-        ../utils/Utils.h
-)        
+# should be moved to main code base
+#add_executable(test_rotation_utils test/test_rotations.cpp
+#
+#        ../utils/Utils.cpp
+#        ../utils/Utils.h
+#)        

@@ -1,9 +1,11 @@
 #pragma once
 #include <deque>
 #include <Eigen/Dense>
-#include "../A1Params.h"
-#include "../utils/filter.hpp"
+#include "filter.hpp"
 #include <gram_savitzky_golay/gram_savitzky_golay.h>
+
+#define NUM_LEG 4
+#define NUM_DOF 12
 
 // This class is a common data structure of all filters, 
 // The state estimation requires IMU data (acceleration, angular velocity) and joint data (joint angles)

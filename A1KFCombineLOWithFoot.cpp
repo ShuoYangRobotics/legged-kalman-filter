@@ -36,9 +36,8 @@ A1KFCombineLOWithFoot::A1KFCombineLOWithFoot(): A1KF() {
 }
 
 
-void A1KFCombineLOWithFoot::init_filter(A1SensorData data) {
-    // need to calculate init foot positions
-    Eigen::Vector3d init_pos = Eigen::Vector3d(0,0,0.15);
+void A1KFCombineLOWithFoot::init_filter(A1SensorData data, Eigen::Vector3d _init_pos) {
+    Eigen::Vector3d init_pos = _init_pos;
     curr_state = Eigen::Matrix<double, EKF_STATE_SIZE, 1>::Zero();
     curr_state.segment<3>(0) = init_pos;
 
@@ -227,14 +226,14 @@ void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData data) {
     Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, 1> invSy = S.fullPivHouseholderQr().solve(opti_residual);
     
     // outlier rejection
-    // double mahalanobis_distance = opti_residual.transpose()*invSy;
-    // if (mahalanobis_distance < 1.0) {
+    double mahalanobis_distance = opti_residual.transpose()*invSy;
+    if (mahalanobis_distance < 10.0) {
         Eigen::Matrix<double, EKF_STATE_SIZE, 1> Ky = curr_covariance*opti_jacobian.transpose()*invSy;
         curr_state += Ky;      
         Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, EKF_STATE_SIZE>  invSH = S.fullPivHouseholderQr().solve(opti_jacobian);
 
         curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - curr_covariance*opti_jacobian.transpose()*invSH)*curr_covariance;  
-    // }
+    }
 }
 
 // private 

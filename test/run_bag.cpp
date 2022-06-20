@@ -12,8 +12,6 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
 
-// control parameters
-#include "../../A1Params.h"
 
 /* only include one of the following three */
 
@@ -34,6 +32,8 @@ double curr_t;
 ros::Publisher filterd_imu_pub;
 ros::Publisher filterd_joint_pub;
 ros::Publisher filterd_pos_pub;
+
+bool first_sensor_received = false;
 void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msgs::JointState::ConstPtr& joint_msg) {
 
     // std::cout<<"sensor_callback"<<std::endl;
@@ -59,13 +59,20 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
     data.input_imu(acc, ang_vel);
     data.input_leg(joint_pos, joint_vel, plan_contacts);
 
-    if ( !kf.is_inited() ) {
-        // init the filter if it is not initialized
+    //TODO: init filter if there is no opti data after 0.01s?
+
+    if ( !kf.is_inited() && first_sensor_received == false ) {
+        // the callback is called the first time, filter may not be inited
         dt = 0;
         curr_t = t;
         data.input_dt(dt);
-        //TODO: init the filter using optitrack data
-        kf.init_filter(data);
+        // init the filter using optitrack data, not here
+        // kf.init_filter(data);
+    } else if ( !kf.is_inited()) {
+        // filter may not be inited even after the callback is called multiple times
+        dt = t- curr_t;
+        data.input_dt(dt);
+        curr_t = t;
     } else {
         dt = t- curr_t;
         
@@ -113,6 +120,8 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
     filterd_pos_msg.twist.twist.linear.z = kf_state[5];
 
     filterd_pos_pub.publish(filterd_pos_msg);
+
+    first_sensor_received = true;
     return;
 
 }
@@ -122,28 +131,36 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
 double opti_dt = 0;
 double opti_curr_t = 0;
 ros::Publisher filterd_opti_vel_pub;
+bool opti_callback_first_received = false;
 void opti_callback(const geometry_msgs::PoseStamped::ConstPtr& opti_msg) {
     std::cout<<"opti_callback"<<std::endl;
     double opti_t = opti_msg->header.stamp.toSec();
 
+    Eigen::Matrix<double, 3, 1> opti_pos; 
+    opti_pos << opti_msg->pose.position.x, opti_msg->pose.position.y, opti_msg->pose.position.z;
 
-    if ( !kf.is_inited() && !data.opti_vel_ready()) {
+    // only init data after sensor and opti are both received
+    if ( !kf.is_inited() && first_sensor_received == true) {
+        kf.init_filter(data, opti_pos);
+    }
+        
+    // update sensor data
+    if (opti_callback_first_received == false) {
         opti_curr_t = opti_t;
         opti_dt = 0;
         data.input_opti_dt(opti_dt);
-        Eigen::Matrix<double, 3, 1> opti_pos; 
-        opti_pos << opti_msg->pose.position.x, opti_msg->pose.position.y, opti_msg->pose.position.z;
         data.input_opti_pos(opti_pos);
     } else {
         // only send data to KF if it is initialized and optitrack generates reliable vel data
 
         opti_dt = opti_t - opti_curr_t;
         data.input_opti_dt(opti_dt);
-        Eigen::Matrix<double, 3, 1> opti_pos; 
-        opti_pos << opti_msg->pose.position.x, opti_msg->pose.position.y, opti_msg->pose.position.z;
         data.input_opti_pos(opti_pos);
-        //update KF
-        // kf.update_filter_with_opti(data);
+    }
+
+    // only update filter after filter init and data opti vel is ready
+    if (kf.is_inited() && data.opti_vel_ready()) {
+        kf.update_filter_with_opti(data);
     }
 
     // debug print
@@ -157,6 +174,7 @@ void opti_callback(const geometry_msgs::PoseStamped::ConstPtr& opti_msg) {
     filterd_opti_vel_pub.publish(filterd_opti_vel_msg);
 
     opti_curr_t = opti_t;
+    opti_callback_first_received = true;
 }
 
 std::ofstream myFile;
