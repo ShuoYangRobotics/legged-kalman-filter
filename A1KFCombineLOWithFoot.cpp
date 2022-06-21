@@ -98,8 +98,8 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
 
         measure_noise.block<3, 3>(i * 3, i * 3)
                 =  0.0001 * eye3;     // fk estimation
-        measure_noise.block<3, 3>(i * 6 + 3, i * 6 + 3)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.1 * eye3;      // vel estimation
+        // measure_noise.block<3, 3>(i * 6 + 3, i * 6 + 3)
+        //         = (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.1 * eye3;      // vel estimation
     }
 
     P01 = process_jacobian*curr_covariance*process_jacobian.transpose() + process_noise;
@@ -137,11 +137,13 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
         suby = measurement.segment<3>(i*6+3);
         invSy = subS.fullPivHouseholderQr().solve(suby);
         mahalanobis_distance = suby.transpose()*invSy;
-        if (mahalanobis_distance < 1) {
+        if (mahalanobis_distance < 5) {
             vel_mask[i] = true;
             total_vel++;
+            estimated_contact[i] = 1.0;
         } else {
             vel_mask[i] = false;
+            estimated_contact[i] = 0.0;
         }
     }
 

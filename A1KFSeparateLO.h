@@ -45,6 +45,7 @@ class A1KFSeparateLO : public A1KF {
         void update_filter_with_opti(A1SensorData data);
 
         Eigen::Matrix<double, EKF_STATE_SIZE,1> get_state() {return curr_state;}
+        Eigen::Matrix<double, NUM_LEG, 1> get_contacts() {return estimated_contact;}
 
     private:
 
@@ -88,4 +89,7 @@ class A1KFSeparateLO : public A1KF {
         casadi::Function measure_jac_func;
         // helper matrices
         Eigen::Matrix<double, 3, 3> eye3; // 3x3 identity
+        
+        // estimated contact (see which foot velocity agrees with state_v)
+        Eigen::Matrix<double, NUM_LEG, 1> estimated_contact;
 };
