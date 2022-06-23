@@ -20,7 +20,7 @@ class A1SensorData {
                 acc_filter[i] = MovingWindowFilter(5);
                 ang_vel_filter[i] = MovingWindowFilter(5);
 
-                opti_pos_filter[i] = MovingWindowFilter(10);
+                opti_pos_filter[i] = MovingWindowFilter(15);
                 opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
             for (int i = 0; i < NUM_DOF; ++i) {

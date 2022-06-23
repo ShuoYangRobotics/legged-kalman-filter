@@ -49,6 +49,8 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData data, Eigen::Vector3d _init
     }
 
     curr_covariance = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity()*0.1;
+    // large initial position uncertainty
+    // curr_covariance.block<3,3>(0,0) = Eigen::Matrix3d::Identity()* 5.0;
 
     KF_initialized = true;
 
@@ -70,13 +72,15 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData data, Eigen::Vector3d _init
     opti_jacobian.setZero();
     opti_jacobian.block<6,6>(0,0) = Eigen::Matrix<double,6,6>::Identity();
     opti_noise.setZero();
-    opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*0.02; //opti_pos
-    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.02; // opti_vel
+    opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*0.001; //opti_pos
+    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.002; // opti_vel
 }
 
 
 void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
-    const std::lock_guard<std::mutex> lock(update_mutex);
+    // const std::lock_guard<std::mutex> lock(update_mutex);
+
+    update_mutex.lock();
     // filter initialized, now curr_ctrl and prev_ctrl are ready
     // update the state
     curr_ctrl << data.ang_vel, data.acc, data.dt;
@@ -206,6 +210,7 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
         // curr_covariance = P01;
     // finally save previous control 
     prev_ctrl = curr_ctrl;
+    update_mutex.unlock();
     return;
 }
 
@@ -213,7 +218,8 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
 
 // update state using opti track data
 void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData data) {
-    const std::lock_guard<std::mutex> lock(update_mutex);
+    // const std::lock_guard<std::mutex> lock(update_mutex);
+    update_mutex.lock();
 
     // actual measurement
     Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, 1> opti_meas;
@@ -234,6 +240,7 @@ void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData data) {
 
         curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - curr_covariance*opti_jacobian.transpose()*invSH)*curr_covariance;  
     }
+    update_mutex.unlock();
 }
 
 // private 
@@ -248,6 +255,7 @@ void A1KFCombineLOWithFoot::load_casadi_functions() {
 void A1KFCombineLOWithFoot::process(Eigen::Matrix<double, EKF_STATE_SIZE, 1> state, 
                                                      Eigen::Matrix<double, CONTROL_SIZE, 1> prev_ctrl, 
                                                      Eigen::Matrix<double, CONTROL_SIZE, 1> ctrl, double dt) {
+    // const std::lock_guard<std::mutex> lock(update_mutex);
     std::vector<double> xk_vec;
     xk_vec.resize(state.size());
     Eigen::Matrix<double, EKF_STATE_SIZE, 1>::Map(&xk_vec[0], state.size()) = state;
@@ -287,6 +295,7 @@ void A1KFCombineLOWithFoot::measure(Eigen::Matrix<double, EKF_STATE_SIZE, 1> sta
                                                      Eigen::Matrix<double, 3, 1> w, 
                                                      Eigen::Matrix<double, 12, 1> joint_ang, 
                                                      Eigen::Matrix<double, 12, 1> joint_vel) {
+    // const std::lock_guard<std::mutex> lock(update_mutex);
 
     std::vector<double> xk_vec;
     xk_vec.resize(state.size());
