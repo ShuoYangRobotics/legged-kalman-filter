@@ -87,8 +87,10 @@ void A1KFSeparateLO::update_filter(A1SensorData data) {
             // TODO: use this as contact estimation?
             vel_mask[i] = true;
             total_vel++;
+            estimated_contact[i] = 1.0;
         } else {
             vel_mask[i] = false;
+            estimated_contact[i] = 0.0;
         }
     }
     if (total_vel>=1) {

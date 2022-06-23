@@ -106,6 +106,10 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         filterd_joint_msg.position[i] = data.joint_pos[i];
         filterd_joint_msg.velocity[i] = data.joint_vel[i];
     }
+    Eigen::Vector4d estimated_contact = kf.get_contacts();
+    for (int i = 0; i < NUM_LEG; ++i) {
+        filterd_joint_msg.velocity[NUM_DOF+i] = estimated_contact[i];
+    }
     filterd_imu_pub.publish(filterd_imu_msg);
     filterd_joint_pub.publish(filterd_joint_msg);
 
@@ -159,9 +163,9 @@ void opti_callback(const geometry_msgs::PoseStamped::ConstPtr& opti_msg) {
     }
 
     // only update filter after filter init and data opti vel is ready
-    if (kf.is_inited() && data.opti_vel_ready()) {
-        kf.update_filter_with_opti(data);
-    }
+    // if (kf.is_inited() && data.opti_vel_ready()) {
+    //     kf.update_filter_with_opti(data);
+    // }
 
     // debug print
     nav_msgs::Odometry filterd_opti_vel_msg;

@@ -43,6 +43,7 @@ class A1KFCombineLOWithFoot : public A1KF {
         void update_filter_with_opti(A1SensorData data);
 
         Eigen::Matrix<double, EKF_STATE_SIZE,1> get_state() {return curr_state;}
+        Eigen::Matrix<double, NUM_LEG, 1> get_contacts() {return estimated_contact;}
 
     private:
         void load_casadi_functions();
@@ -91,7 +92,11 @@ class A1KFCombineLOWithFoot : public A1KF {
         double upper_leg_length[4] = {};
         double lower_leg_length[4] = {};
         std::vector<Eigen::VectorXd> rho_fix_list;
-        std::vector<Eigen::VectorXd> rho_opt_list;     
+        std::vector<Eigen::VectorXd> rho_opt_list;    
+
+        // estimated contact (see which foot velocity agrees with state_v)
+        Eigen::Matrix<double, NUM_LEG, 1> estimated_contact;
+
         // helper matrices
         Eigen::Matrix<double, 3, 3> eye3; // 3x3 identity
         Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE> S;
