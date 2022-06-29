@@ -141,7 +141,7 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
         suby = measurement.segment<3>(i*6+3);
         invSy = subS.fullPivHouseholderQr().solve(suby);
         mahalanobis_distance = suby.transpose()*invSy;
-        if (mahalanobis_distance < 0.4) {
+        if (mahalanobis_distance < 0.5) {
             vel_mask[i] = true;
             total_vel++;
             estimated_contact[i] = 1.0;
