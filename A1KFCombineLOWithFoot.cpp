@@ -71,9 +71,11 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData data, Eigen::Vector3d _init
     // opti track related 
     opti_jacobian.setZero();
     opti_jacobian.block<6,6>(0,0) = Eigen::Matrix<double,6,6>::Identity();
+    opti_jacobian(6,8) = 1.0; 
     opti_noise.setZero();
     opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*0.001; //opti_pos
-    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.002; // opti_vel
+    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.01; // opti_vel
+    opti_noise.block<1,1>(6,6) = Eigen::Matrix<double,1,1>::Identity()*0.001; // opti yaw 
 }
 
 
@@ -225,9 +227,8 @@ void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData data) {
 
     // actual measurement
     Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, 1> opti_meas;
-    opti_meas << data.opti_pos, data.opti_vel;
+    opti_meas << data.opti_pos, data.opti_vel, data.opti_euler(2);
     Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, 1> opti_residual = opti_meas - opti_jacobian*curr_state;
-
     // 
     Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, OPTI_OBSERVATION_SIZE> S = opti_jacobian*curr_covariance*opti_jacobian.transpose() + opti_noise;
 

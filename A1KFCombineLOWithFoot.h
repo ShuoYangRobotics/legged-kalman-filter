@@ -31,7 +31,7 @@
 #define CONTROL_SIZE 7
 #define OBSERVATION_SIZE 24   
 
-#define OPTI_OBSERVATION_SIZE 6 // observe position and velocity using optitrack
+#define OPTI_OBSERVATION_SIZE 7 // observe position, velocity, and yaw using optitrack
 #define UPDATE_DT 0.002
 
 

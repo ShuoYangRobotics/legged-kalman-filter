@@ -19,6 +19,7 @@ class A1SensorData {
             for (int i = 0; i < 3; ++i) {
                 acc_filter[i] = MovingWindowFilter(5);
                 ang_vel_filter[i] = MovingWindowFilter(5);
+                opti_euler_filter[i] = MovingWindowFilter(15); 
 
                 opti_pos_filter[i] = MovingWindowFilter(15);
                 opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
@@ -87,6 +88,12 @@ class A1SensorData {
                 }
             }
         }
+        
+        void input_opti_euler(Eigen::Vector3d euler_angs) {
+            for (size_t i = 0; i < 3; i++) {
+                this->opti_euler[i] = opti_euler_filter[i].CalculateAverage(euler_angs[i]);
+            }
+        }
 
         bool opti_vel_ready () {return opti_sglolay_initialized;}
         
@@ -105,6 +112,7 @@ class A1SensorData {
         // data in IMU and jointState
         Eigen::Vector3d acc;
         Eigen::Vector3d ang_vel;
+        Eigen::Vector3d opti_euler; 
         Eigen::Matrix<double, NUM_DOF,1> joint_pos;
         Eigen::Matrix<double, NUM_DOF,1> joint_vel;
         Eigen::Matrix<double, NUM_LEG,1> plan_contacts;
@@ -129,6 +137,7 @@ class A1SensorData {
 
         /* filters for opti track data */
         MovingWindowFilter opti_pos_filter[3];
+        MovingWindowFilter opti_euler_filter[3]; 
         gram_sg::SavitzkyGolayFilter opti_vel_filter_sgolay[3];
         std::deque<double> opti_sgolay_values[3];
         std::deque<double> opti_dt_values;  // optitrack dt is different from hardware_imu/joint_foot dt
