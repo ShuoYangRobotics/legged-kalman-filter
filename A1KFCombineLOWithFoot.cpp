@@ -59,7 +59,7 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData data, Eigen::Vector3d _init
     // initialize noise matrices
     process_noise = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity()*0.01;
     process_noise.diagonal().segment<3>(0) = 0.1*Eigen::Vector3d::Ones();
-    process_noise.diagonal().segment<3>(3) = 0.1*Eigen::Vector3d::Ones();
+    process_noise.diagonal().segment<3>(3) = 0.05*Eigen::Vector3d::Ones();
     process_noise.diagonal().segment<3>(6) = 1e-6*Eigen::Vector3d::Ones();
     process_noise.diagonal().segment<12>(9) = 1e-2*Eigen::Matrix<double,12,1>::Ones();
     process_noise.diagonal()[EKF_STATE_SIZE-1] = 0; // the time is exact
@@ -74,8 +74,8 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData data, Eigen::Vector3d _init
     opti_jacobian(6,8) = 1.0; 
     opti_noise.setZero();
     opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*0.001; //opti_pos
-    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.01; // opti_vel
-    opti_noise.block<1,1>(6,6) = Eigen::Matrix<double,1,1>::Identity()*0.001; // opti yaw 
+    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.05; // opti_vel
+    opti_noise.block<1,1>(6,6) = Eigen::Matrix<double,1,1>::Identity()*0.01; // opti yaw 
 }
 
 
@@ -103,7 +103,7 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
                 (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.01 * data.dt * eye3;  // foot position transition
 
         measure_noise.block<3, 3>(i * 3, i * 3)
-                =  0.0001 * eye3;     // fk estimation
+                =  0.001 * eye3;     // fk estimation
         // measure_noise.block<3, 3>(i * 6 + 3, i * 6 + 3)
         //         = (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.1 * eye3;      // vel estimation
     }

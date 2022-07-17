@@ -1,4 +1,6 @@
-#pragma once
+#ifndef A1KF_H
+#define A1KF_H
+#include <mutex>
 #include <deque>
 #include <Eigen/Dense>
 #include "filter.hpp"
@@ -16,33 +18,34 @@
 class A1SensorData {
     public:
         A1SensorData() {
-            for (int i = 0; i < 3; ++i) {
-                acc_filter[i] = MovingWindowFilter(5);
+            for (size_t i = 0; i < 3; ++i) {
+                acc_filter[i] = MovingWindowFilter(20);
                 ang_vel_filter[i] = MovingWindowFilter(5);
                 opti_euler_filter[i] = MovingWindowFilter(15); 
 
                 opti_pos_filter[i] = MovingWindowFilter(15);
                 opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
-            for (int i = 0; i < NUM_DOF; ++i) {
+            for (size_t i = 0; i < NUM_DOF; ++i) {
                 joint_pos_filter[i] = MovingWindowFilter(5);
                 joint_vel_filter[i] = MovingWindowFilter(5);
                 joint_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
             dt = 0.002;  // because hardware_imu is at 500Hz
             opti_dt = 0.0027;  // because optitrack is at 360Hz
+            data_lock  = new std::mutex();
         }
 
         /* IMU and joint data */
         void input_imu(Eigen::Matrix<double, 3, 1> acc, Eigen::Matrix<double, 3, 1> ang_vel) {
-            for (int i = 0; i < 3; ++i) {
+            for (size_t i = 0; i < 3; ++i) {
                 this->acc[i] = acc_filter[i].CalculateAverage(acc[i]);
                 this->ang_vel[i] = ang_vel_filter[i].CalculateAverage(ang_vel[i]);
             }
         }
 
         void input_leg(Eigen::Matrix<double, NUM_DOF, 1> joint_pos, Eigen::Matrix<double, NUM_DOF, 1> joint_vel, Eigen::Matrix<double, NUM_LEG, 1> contact) {
-            for (int i = 0; i < NUM_DOF; ++i) {
+            for (size_t i = 0; i < NUM_DOF; ++i) {
                 this->joint_pos[i] = joint_pos_filter[i].CalculateAverage(joint_pos[i]);
                 // this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
 
@@ -65,7 +68,7 @@ class A1SensorData {
                 dt_values.pop_front();
             }
             average_dt = 0.0;
-            for (long unsigned int i = 0; i< dt_values.size(); ++i) {
+            for (size_t i = 0; i< dt_values.size(); ++i) {
                 average_dt += dt_values[i];
             }
             average_dt /= dt_values.size();
@@ -73,6 +76,7 @@ class A1SensorData {
 
         /* opti track data */
         void input_opti_pos(Eigen::Matrix<double, 3, 1> _opti_pos) {
+            data_lock->lock();
             for (size_t i = 0; i < 3; i++) {
                 this->opti_pos[i] = opti_pos_filter[i].CalculateAverage(_opti_pos[i]);
                 
@@ -87,6 +91,7 @@ class A1SensorData {
                     this->opti_vel[i] = opti_vel_filter_sgolay[i].filter(opti_sgolay_values[i])/opti_average_dt;
                 }
             }
+            data_lock->unlock();
         }
         
         void input_opti_euler(Eigen::Vector3d euler_angs) {
@@ -98,16 +103,18 @@ class A1SensorData {
         bool opti_vel_ready () {return opti_sglolay_initialized;}
         
         void input_opti_dt(double opti_dt) {
+            data_lock->lock();
             this->opti_dt = opti_dt;
             opti_dt_values.push_back(opti_dt);
             if (opti_dt_values.size() > sgolay_frame) {
                 opti_dt_values.pop_front();
             }
             opti_average_dt = 0.0;
-            for (long unsigned int i = 0; i< opti_dt_values.size(); ++i) {
+            for (size_t i = 0; i< opti_dt_values.size(); ++i) {
                 opti_average_dt += opti_dt_values[i];
             }
             opti_average_dt /= opti_dt_values.size();
+            data_lock->unlock();
         }
         // data in IMU and jointState
         Eigen::Vector3d acc;
@@ -143,8 +150,10 @@ class A1SensorData {
         std::deque<double> opti_dt_values;  // optitrack dt is different from hardware_imu/joint_foot dt
 
         // common SavitzkyGolay filter parameters
-        const long unsigned int sgolay_order = 7;
-        const long unsigned int sgolay_frame = 15; // must be sgolay_order*2+1
+        const size_t sgolay_order = 7;
+        const size_t sgolay_frame = 15; // must be sgolay_order*2+1
+
+        std::mutex * data_lock;
 };
 
 
@@ -157,3 +166,5 @@ class A1KF {
         bool KF_initialized = false;
 
 };
+
+#endif
