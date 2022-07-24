@@ -36,7 +36,7 @@ A1KFCombineLOWithFoot::A1KFCombineLOWithFoot(): A1KF() {
 }
 
 
-void A1KFCombineLOWithFoot::init_filter(A1SensorData data, Eigen::Vector3d _init_pos) {
+void A1KFCombineLOWithFoot::init_filter(A1SensorData& data, Eigen::Vector3d _init_pos) {
     Eigen::Vector3d init_pos = _init_pos;
     curr_state = Eigen::Matrix<double, EKF_STATE_SIZE, 1>::Zero();
     curr_state.segment<3>(0) = init_pos;
@@ -79,7 +79,7 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData data, Eigen::Vector3d _init
 }
 
 
-void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
+void A1KFCombineLOWithFoot::update_filter(A1SensorData& data) {
     // const std::lock_guard<std::mutex> lock(update_mutex);
 
     update_mutex.lock();
@@ -226,7 +226,7 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData data) {
 
 
 // update state using opti track data
-void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData data) {
+void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData& data) {
     // const std::lock_guard<std::mutex> lock(update_mutex);
     update_mutex.lock();
 

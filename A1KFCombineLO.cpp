@@ -8,7 +8,7 @@ A1KFCombineLO::A1KFCombineLO(): A1KF() {
     KF_initialized = false;
 }
 
-void A1KFCombineLO::init_filter(A1SensorData data, Eigen::Vector3d _init_pos) {
+void A1KFCombineLO::init_filter(A1SensorData& data, Eigen::Vector3d _init_pos) {
     Eigen::Vector3d init_pos = _init_pos;
     curr_state = Eigen::Matrix<double, EKF_STATE_SIZE, 1>::Zero();
     curr_state.segment<3>(0) = init_pos;
@@ -38,7 +38,7 @@ void A1KFCombineLO::init_filter(A1SensorData data, Eigen::Vector3d _init_pos) {
 }
 
 
-void A1KFCombineLO::update_filter(A1SensorData data) {
+void A1KFCombineLO::update_filter(A1SensorData& data) {
     const std::lock_guard<std::mutex> lock(update_mutex);
     // filter initialized, now curr_ctrl and prev_ctrl are ready
     // update the state
@@ -93,7 +93,7 @@ void A1KFCombineLO::update_filter(A1SensorData data) {
 }
 
 // update state using opti track data
-void A1KFCombineLO::update_filter_with_opti(A1SensorData data) {
+void A1KFCombineLO::update_filter_with_opti(A1SensorData& data) {
     const std::lock_guard<std::mutex> lock(update_mutex);
 
     // actual measurement

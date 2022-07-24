@@ -38,9 +38,9 @@
 class A1KFCombineLOWithFoot : public A1KF {
     public:
         A1KFCombineLOWithFoot ();
-        void init_filter(A1SensorData data, Eigen::Vector3d _init_pos = Eigen::Vector3d(0,0,0.15));
-        void update_filter(A1SensorData data);
-        void update_filter_with_opti(A1SensorData data);
+        void init_filter(A1SensorData& data, Eigen::Vector3d _init_pos = Eigen::Vector3d(0,0,0.15));
+        void update_filter(A1SensorData& data);
+        void update_filter_with_opti(A1SensorData& data);
 
         Eigen::Matrix<double, EKF_STATE_SIZE,1> get_state() {return curr_state;}
         Eigen::Matrix<double, NUM_LEG, 1> get_contacts() {return estimated_contact;}
