@@ -74,7 +74,7 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData& data, Eigen::Vector3d _ini
     opti_jacobian(6,8) = 1.0; 
     opti_noise.setZero();
     opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*0.001; //opti_pos
-    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*0.05; // opti_vel
+    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*999.0; // opti_vel
     opti_noise.block<1,1>(6,6) = Eigen::Matrix<double,1,1>::Identity()*0.01; // opti yaw 
 }
 
@@ -241,7 +241,7 @@ void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData& data) {
     
     // outlier rejection
     double mahalanobis_distance = opti_residual.transpose()*invSy;
-    if (mahalanobis_distance < 10.0) {
+    if (mahalanobis_distance < 5.0) {
         Eigen::Matrix<double, EKF_STATE_SIZE, 1> Ky = curr_covariance*opti_jacobian.transpose()*invSy;
         curr_state += Ky;      
         Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, EKF_STATE_SIZE>  invSH = S.fullPivHouseholderQr().solve(opti_jacobian);
