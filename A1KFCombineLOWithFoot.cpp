@@ -48,7 +48,7 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData& data, Eigen::Vector3d _ini
         curr_state.segment<3>(9+i*3) = init_foot_pos+init_pos;
     }
 
-    curr_covariance = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity()*0.1;
+    curr_covariance = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity()*0.001;
     // large initial position uncertainty
     // curr_covariance.block<3,3>(0,0) = Eigen::Matrix3d::Identity()* 5.0;
 
