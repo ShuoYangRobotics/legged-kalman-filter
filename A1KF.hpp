@@ -19,20 +19,20 @@ class A1SensorData {
     public:
         A1SensorData() {
             for (size_t i = 0; i < 3; ++i) {
-                acc_filter[i] = MovingWindowFilter(20);
-                ang_vel_filter[i] = MovingWindowFilter(5);
+                acc_filter[i] = MovingWindowFilter(30);
+                ang_vel_filter[i] = MovingWindowFilter(15);
                 opti_euler_filter[i] = MovingWindowFilter(15); 
 
                 opti_pos_filter[i] = MovingWindowFilter(15);
                 opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
             for (size_t i = 0; i < NUM_DOF; ++i) {
-                joint_pos_filter[i] = MovingWindowFilter(5);
-                joint_vel_filter[i] = MovingWindowFilter(5);
+                joint_pos_filter[i] = MovingWindowFilter(15);
+                joint_vel_filter[i] = MovingWindowFilter(15);
                 joint_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
-            dt = 0.002;  // because hardware_imu is at 500Hz
-            opti_dt = 0.0027;  // because optitrack is at 360Hz
+            dt = 0.001;  // because hardware_imu is at 1000Hz
+            opti_dt = 0.005;  // because optitrack is at 200Hz
             data_lock  = new std::mutex();
         }
 
@@ -52,10 +52,12 @@ class A1SensorData {
                 if (sgolay_values[i].size() < sgolay_frame) {
                     this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
                     sgolay_values[i].push_back(joint_pos[i]);
+                    joint_sglolay_initialized = false;
                 } else {
                     sgolay_values[i].pop_front();
                     sgolay_values[i].push_back(joint_pos[i]);
                     this->joint_vel[i] = joint_vel_filter_sgolay[i].filter(sgolay_values[i])/average_dt;
+                    joint_sglolay_initialized = true;
                 }
             }
             this-> plan_contacts = contact;
@@ -101,6 +103,7 @@ class A1SensorData {
         }
 
         bool opti_vel_ready () {return opti_sglolay_initialized;}
+        bool joint_vel_ready () {return joint_sglolay_initialized;}
         
         void input_opti_dt(double opti_dt) {
             data_lock->lock();
@@ -129,6 +132,7 @@ class A1SensorData {
         // data in optitrack position
         Eigen::Vector3d opti_pos;
         Eigen::Vector3d opti_vel;  // use SavitzkyGolayFilter to get smoothed velocity
+        bool joint_sglolay_initialized = false;
         bool opti_sglolay_initialized = false;
         double opti_dt;
         double opti_average_dt;

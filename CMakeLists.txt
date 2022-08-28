@@ -15,6 +15,7 @@ add_library(kf_lib
         A1KFCombineLO.cpp
         A1KFSeparateLO.cpp
         A1KFCombineLOWithFoot.cpp
+        A1KFCombineLOWithFootTerrain.cpp
         ../legKinematics/A1Kinematics.cpp
 )
 

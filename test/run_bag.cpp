@@ -21,9 +21,11 @@
 // #include "../A1KFSeparateLO.h"
 // A1KFSeparateLO kf;  // Kalman filter Baseline 2 separate leg odometry velocites
 
-#include "../A1KFCombineLOWithFoot.h"
-A1KFCombineLOWithFoot kf;  // Kalman filter Baseline 3 with foot
+// #include "../A1KFCombineLOWithFoot.h"
+// A1KFCombineLOWithFoot kf;  // Kalman filter Baseline 3 with foot
 
+#include "../A1KFCombineLOWithFootTerrain.h"
+A1KFCombineLOWithFootTerrain kf;  // Kalman filter Baseline 4 with foot, with terrain factor 
 
 A1SensorData data;
 double curr_t;
@@ -51,7 +53,8 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         joint_vel[i] = joint_msg->velocity[i];
     }
     for (int i = 0; i < NUM_LEG; ++i) {
-        plan_contacts[i] = joint_msg->velocity[NUM_DOF + i];
+        // plan_contacts[i] = joint_msg->velocity[NUM_DOF + i];
+        plan_contacts[i] = joint_msg->effort[NUM_DOF + i]>100?1.0:0.0 ;
         // joint_foot_msg.effort[NUM_DOF + i]  --> foot_force[i];
     }
 
@@ -67,7 +70,7 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         curr_t = t;
         data.input_dt(dt);
         // init the filter using optitrack data, not here
-        // kf.init_filter(data);
+        kf.init_filter(data);
     } else if ( !kf.is_inited()) {
         // filter may not be inited even after the callback is called multiple times
         dt = t- curr_t;

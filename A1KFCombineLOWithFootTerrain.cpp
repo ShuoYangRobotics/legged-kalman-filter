@@ -1,7 +1,7 @@
-#include "A1KFCombineLOWithFoot.h"
+#include "A1KFCombineLOWithFootTerrain.h"
 
 // default constructor
-A1KFCombineLOWithFoot::A1KFCombineLOWithFoot(): A1KF() {
+A1KFCombineLOWithFootTerrain::A1KFCombineLOWithFootTerrain(): A1KF() {
     load_casadi_functions();
     curr_state = Eigen::Matrix<double, EKF_STATE_SIZE, 1>::Zero();
     curr_covariance = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity()*0.01;
@@ -36,7 +36,7 @@ A1KFCombineLOWithFoot::A1KFCombineLOWithFoot(): A1KF() {
 }
 
 
-void A1KFCombineLOWithFoot::init_filter(A1SensorData& data, Eigen::Vector3d _init_pos) {
+void A1KFCombineLOWithFootTerrain::init_filter(A1SensorData& data, Eigen::Vector3d _init_pos) {
     Eigen::Vector3d init_pos = _init_pos;
     curr_state = Eigen::Matrix<double, EKF_STATE_SIZE, 1>::Zero();
     curr_state.segment<3>(0) = init_pos;
@@ -61,11 +61,11 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData& data, Eigen::Vector3d _ini
     process_noise.diagonal().segment<3>(0) = 0.1*Eigen::Vector3d::Ones();
     process_noise.diagonal().segment<3>(3) = 0.05*Eigen::Vector3d::Ones();
     process_noise.diagonal().segment<3>(6) = 1e-6*Eigen::Vector3d::Ones();
-    process_noise.diagonal().segment<12>(9) = 1e-2*Eigen::Matrix<double,12,1>::Ones();
+    process_noise.diagonal().segment<12>(9) = 1e-3*Eigen::Matrix<double,12,1>::Ones();
     process_noise.diagonal()[EKF_STATE_SIZE-1] = 0; // the time is exact
 
     // initialize measurement noise
-    measure_noise = Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE>::Identity()*0.1;
+    measure_noise = Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE>::Identity()*0.01;
 
 
     // opti track related 
@@ -79,7 +79,7 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData& data, Eigen::Vector3d _ini
 }
 
 
-void A1KFCombineLOWithFoot::update_filter(A1SensorData& data) {
+void A1KFCombineLOWithFootTerrain::update_filter(A1SensorData& data) {
     // const std::lock_guard<std::mutex> lock(update_mutex);
 
     update_mutex.lock();
@@ -93,24 +93,27 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData& data) {
     process_noise.diagonal().segment<2>(0) = 0.001*data.dt/20.0*Eigen::Vector2d::Ones();           // pos x y
     process_noise.diagonal()(2) = 0.001* data.dt / 20.0;                                             // pos z
     process_noise.diagonal().segment<2>(3) = 0.001 * data.dt * 9.8 / 20.0*Eigen::Vector2d::Ones();  // vel x y
-    process_noise.diagonal()(5) = 0.001 * data.dt * 9.8 / 20.0;                                       // vel z
+    process_noise.diagonal()(5) = 0.01 * data.dt * 9.8 / 20.0;                                       // vel z
     process_noise.diagonal().segment<3>(6) = 1e-6*Eigen::Vector3d::Ones();
 
     // adjust noise according to contact 
     for (int i = 0; i < NUM_LEG; ++i) {
         process_noise.block<3, 3>(9 + i * 3, 9 + i * 3)
                 =
-                (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.0001 * data.dt * eye3;  // foot position transition
+                (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.001 * data.dt * eye3;  // foot position transition
 
-        measure_noise.block<3, 3>(i * 6, i * 6)
+        measure_noise.block<3, 3>(i * OBS_PER_LEG, i * OBS_PER_LEG)
                 =  0.01 * eye3;     // fk estimation
 
-        measure_noise(i * 6 + 3, i * 6 + 3)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 2 ;      // vel estimation
-        measure_noise(i * 6 + 4, i * 6 + 4)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 2 ;      // vel estimation
-        measure_noise(i * 6 + 5, i * 6 + 5)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.1 ;      // vel estimation
+        measure_noise(i * OBS_PER_LEG + 3, i * OBS_PER_LEG + 3)
+                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.01 ;      // vel estimation
+        measure_noise(i * OBS_PER_LEG + 4, i * OBS_PER_LEG + 4)
+                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.01 ;      // vel estimation
+        measure_noise(i * OBS_PER_LEG + 5, i * OBS_PER_LEG + 5)
+                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.01 ;      // vel estimation
+
+        measure_noise(i * OBS_PER_LEG + 6, i * OBS_PER_LEG + 6)
+                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.0001 ;      // height
     }
 
     P01 = process_jacobian*curr_covariance*process_jacobian.transpose() + process_noise;
@@ -120,103 +123,111 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData& data) {
 
     S = measurement_jacobian*P01*measurement_jacobian.transpose() + measure_noise;
 
-    // outliner rejection
-    bool pos_mask[NUM_LEG]; 
-    bool vel_mask[NUM_LEG]; 
-    int total_pos = 0, total_vel  = 0;
-    double mahalanobis_distance = 0;
-    for (int i = 0; i < NUM_LEG; ++i) {
-        // position
-        Eigen::Matrix3d subS = S.block<3,3>(i*6,i*6);
-        Eigen::Vector3d suby = measurement.segment<3>(i*6);
-        Eigen::Vector3d invSy = subS.fullPivHouseholderQr().solve(suby);
-        mahalanobis_distance = suby.transpose()*invSy;
-        if (mahalanobis_distance < 0.5) {
-            pos_mask[i] = true;
-            total_pos++;
-        } else {
-            pos_mask[i] = false;
-        }
+    // // outliner rejection
+    // bool pos_mask[NUM_LEG]; 
+    // bool vel_mask[NUM_LEG]; 
+    // int total_pos = 0, total_vel  = 0;
+    // double mahalanobis_distance = 0;
+    // for (int i = 0; i < NUM_LEG; ++i) {
+    //     // position
+    //     Eigen::Matrix3d subS = S.block<3,3>(i*OBS_PER_LEG,i*OBS_PER_LEG);
+    //     Eigen::Vector3d suby = measurement.segment<3>(i*OBS_PER_LEG);
+    //     Eigen::Vector3d invSy = subS.fullPivHouseholderQr().solve(suby);
+    //     mahalanobis_distance = suby.transpose()*invSy;
+    //     if (mahalanobis_distance < 11.5) {
+    //         pos_mask[i] = true;
+    //         total_pos++;
+    //     } else {
+    //         pos_mask[i] = false;
+    //     }
 
-        // velocity
+    //     // velocity
 
-        // modify measurement noise according to contact
-        // Eigen::Vector3d vel_meas = measurement.segment<3>(i*6+3);
-        // measurement.segment<3>(i*6+3) = (1 - data.plan_contacts[i]) * Eigen::Vector3d::Zero() + data.plan_contacts[i] * vel_meas;
+    //     // modify measurement noise according to contact
+    //     // Eigen::Vector3d vel_meas = measurement.segment<3>(i*6+3);
+    //     // measurement.segment<3>(i*6+3) = (1 - data.plan_contacts[i]) * Eigen::Vector3d::Zero() + data.plan_contacts[i] * vel_meas;
 
-        subS = S.block<3,3>(i*6+3,i*6+3);
-        suby = measurement.segment<3>(i*6+3);
-        invSy = subS.fullPivHouseholderQr().solve(suby);
-        mahalanobis_distance = suby.transpose()*invSy;
-        if (mahalanobis_distance < 0.1) {
-            vel_mask[i] = true;
-            total_vel++;
-            estimated_contact[i] = 1.0;
-        } else {
-            vel_mask[i] = false;
-            estimated_contact[i] = 0.0;
-        }
-    }
+    //     subS = S.block<3,3>(i*OBS_PER_LEG+3,i*OBS_PER_LEG+3);
+    //     suby = measurement.segment<3>(i*OBS_PER_LEG+3);
+    //     invSy = subS.fullPivHouseholderQr().solve(suby);
+    //     mahalanobis_distance = suby.transpose()*invSy;
+    //     if (mahalanobis_distance < 11.5) {
+    //         vel_mask[i] = true;
+    //         total_vel++;
+    //         estimated_contact[i] = 1.0;
+    //     } else {
+    //         vel_mask[i] = false;
+    //         estimated_contact[i] = 0.0;
+    //     }
+    // }
 
-    if (total_pos+total_vel >= 1) {
-        // have to use MatrixXd and VectorXd to store the masked measurement
-        Eigen::VectorXd masked_measurement(total_pos*3+total_vel*3);
-        masked_measurement.setZero();
-        // Eigen::MatrixXd masked_S(total_pos*3+total_vel*3, total_pos*3+total_vel*3);
-        // masked_S.setZero();
-        Eigen::MatrixXd masked_jacobian(total_pos*3+total_vel*3, EKF_STATE_SIZE);
-        Eigen::MatrixXd masked_measure_noise(total_pos*3+total_vel*3, total_pos*3+total_vel*3);
-        masked_measure_noise.setZero();
-        masked_jacobian.setZero();
-        int idx_pos = 0, idx_vel  = 0;
-        for (int i = 0; i < NUM_LEG; ++i) {
-            if (pos_mask[i] == true) {
-                masked_measurement.segment<3>(idx_pos*3) = measurement.segment<3>(i*6);
-                // masked_S.block<3,3>(idx_pos*3, idx_pos*3) = S.block<3,3>(i*6, i*6);
-                masked_measure_noise.block<3,3>(idx_pos*3, idx_pos*3) = measure_noise.block<3,3>(i*6, i*6);
-                masked_jacobian.block<3,EKF_STATE_SIZE>(idx_pos*3, 0) = measurement_jacobian.block<3,EKF_STATE_SIZE>(i*6, 0);
-                idx_pos++;
-            }
+    // // if (total_pos+total_vel >= 1) {
+    //     // have to use MatrixXd and VectorXd to store the masked measurement
+    //     Eigen::VectorXd masked_measurement(total_pos*3+total_vel*3+NUM_LEG);
+    //     masked_measurement.setZero();
+    //     // Eigen::MatrixXd masked_S(total_pos*3+total_vel*3, total_pos*3+total_vel*3);
+    //     // masked_S.setZero();
+    //     Eigen::MatrixXd masked_jacobian(total_pos*3+total_vel*3+NUM_LEG, EKF_STATE_SIZE);
+    //     Eigen::MatrixXd masked_measure_noise(total_pos*3+total_vel*3+NUM_LEG, total_pos*3+total_vel*3+NUM_LEG);
+    //     masked_measure_noise.setZero();
+    //     masked_jacobian.setZero();
+    //     int idx_pos = 0, idx_vel  = 0;
+    //     for (int i = 0; i < NUM_LEG; ++i) {
+    //         if (pos_mask[i] == true) {
+    //             masked_measurement.segment<3>(idx_pos*3) = measurement.segment<3>(i*OBS_PER_LEG);
+    //             // masked_S.block<3,3>(idx_pos*3, idx_pos*3) = S.block<3,3>(i*6, i*6);
+    //             masked_measure_noise.block<3,3>(idx_pos*3, idx_pos*3) = measure_noise.block<3,3>(i*OBS_PER_LEG, i*OBS_PER_LEG);
+    //             masked_jacobian.block<3,EKF_STATE_SIZE>(idx_pos*3, 0) = measurement_jacobian.block<3,EKF_STATE_SIZE>(i*OBS_PER_LEG, 0);
+    //             idx_pos++;
+    //         }
 
-            if (vel_mask[i] == true) {
-                masked_measurement.segment<3>(total_pos*3+idx_vel*3) = measurement.segment<3>(i*6+3);
-                // masked_S.block<3,3>(total_pos*3+idx_vel*3, total_pos*3+idx_vel*3) = S.block<3,3>(i*6+3, i*6+3);
-                masked_measure_noise.block<3,3>(total_pos*3+idx_vel*3, total_pos*3+idx_vel*3) = measure_noise.block<3,3>(i*6+3, i*6+3);
-                masked_jacobian.block<3,EKF_STATE_SIZE>(total_pos*3+idx_vel*3, 0) = measurement_jacobian.block<3,EKF_STATE_SIZE>(i*6+3, 0);
-                idx_vel++;
-            }
-        }
-        Eigen::MatrixXd masked_S = masked_jacobian*P01*masked_jacobian.transpose() + masked_measure_noise;
-        Eigen::VectorXd masked_invSy = masked_S.fullPivHouseholderQr().solve(masked_measurement);
+    //         if (vel_mask[i] == true) {
+    //             masked_measurement.segment<3>(total_pos*3+idx_vel*3) = measurement.segment<3>(i*OBS_PER_LEG+3);
+    //             // masked_S.block<3,3>(total_pos*3+idx_vel*3, total_pos*3+idx_vel*3) = S.block<3,3>(i*6+3, i*6+3);
+    //             masked_measure_noise.block<3,3>(total_pos*3+idx_vel*3, total_pos*3+idx_vel*3) = measure_noise.block<3,3>(i*OBS_PER_LEG+3, i*OBS_PER_LEG+3);
+    //             masked_jacobian.block<3,EKF_STATE_SIZE>(total_pos*3+idx_vel*3, 0) = measurement_jacobian.block<3,EKF_STATE_SIZE>(i*OBS_PER_LEG+3, 0);
+    //             idx_vel++;
+    //         }
+    //         // foot height
+    //         masked_measurement(total_pos*3+idx_vel*3+i) = measurement(i*OBS_PER_LEG+6);
+    //         masked_measure_noise(total_pos*3+idx_vel*3+i, total_pos*3+idx_vel*3+i) = measure_noise(i*OBS_PER_LEG+6, i*OBS_PER_LEG+6);
+    //         masked_jacobian.block<1,EKF_STATE_SIZE>(total_pos*3+idx_vel*3+i, 0) = measurement_jacobian.block<1,EKF_STATE_SIZE>(i*OBS_PER_LEG+6, 0);
 
-        Eigen::Matrix<double, EKF_STATE_SIZE,1> update =  P01*masked_jacobian.transpose()*masked_invSy;
+    //     }
+    //     Eigen::MatrixXd masked_S = masked_jacobian*P01*masked_jacobian.transpose() + masked_measure_noise;
+    //     Eigen::VectorXd masked_invSy = masked_S.fullPivHouseholderQr().solve(masked_measurement);
+
+    //     Eigen::Matrix<double, EKF_STATE_SIZE,1> update =  P01*masked_jacobian.transpose()*masked_invSy;
+    //     curr_state = x01 - update;
+
+    //     Eigen::MatrixXd  invSH = masked_S.fullPivHouseholderQr().solve(masked_jacobian);
+
+    //     curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - P01*masked_jacobian.transpose()*invSH)*P01;
+
+    //     curr_covariance = (curr_covariance + curr_covariance.transpose()) / 2;
+    // } else {
+    //     //update the state and covariance directly without using measurements
+    //     curr_state = x01;
+    //     curr_covariance = P01;
+    // }
+
+    
+    Eigen::VectorXd invSy = S.fullPivHouseholderQr().solve(measurement);
+    double mahalanobis_distance = measurement.transpose()*invSy;
+    if ( mahalanobis_distance< 100) {
+        Eigen::Matrix<double, EKF_STATE_SIZE,1> update =  P01*measurement_jacobian.transpose()*invSy;
+
         curr_state = x01 - update;
 
-        Eigen::MatrixXd  invSH = masked_S.fullPivHouseholderQr().solve(masked_jacobian);
+        Eigen::MatrixXd  invSH = S.fullPivHouseholderQr().solve(measurement_jacobian);
 
-        curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - P01*masked_jacobian.transpose()*invSH)*P01;
+        curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - P01*measurement_jacobian.transpose()*invSH)*P01;
 
         curr_covariance = (curr_covariance + curr_covariance.transpose()) / 2;
     } else {
-        //update the state and covariance directly without using measurements
         curr_state = x01;
         curr_covariance = P01;
     }
-
-    
-    // Eigen::VectorXd invSy = S.fullPivHouseholderQr().solve(measurement);
-
-    // Eigen::Matrix<double, EKF_STATE_SIZE,1> update =  P01*measurement_jacobian.transpose()*invSy;
-
-    // curr_state = x01 - update;
-
-    // Eigen::MatrixXd  invSH = S.fullPivHouseholderQr().solve(measurement_jacobian);
-
-    // curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - P01*measurement_jacobian.transpose()*invSH)*P01;
-
-    // curr_covariance = (curr_covariance + curr_covariance.transpose()) / 2;
-        // curr_state = x01;
-        // curr_covariance = P01;
     // finally save previous control 
     prev_ctrl = curr_ctrl;
     update_mutex.unlock();
@@ -226,7 +237,7 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData& data) {
 
 
 // update state using opti track data
-void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData& data) {
+void A1KFCombineLOWithFootTerrain::update_filter_with_opti(A1SensorData& data) {
     // const std::lock_guard<std::mutex> lock(update_mutex);
     update_mutex.lock();
 
@@ -252,15 +263,15 @@ void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData& data) {
 }
 
 // private 
-void A1KFCombineLOWithFoot::load_casadi_functions() {
+void A1KFCombineLOWithFootTerrain::load_casadi_functions() {
     // load casadi functions
-    process_func = casadi::external("process", "/tmp/casadi_kf_baseline3_process.so");
-    process_jac_func = casadi::external("process_jac", "/tmp/casadi_kf_baseline3_process_jac.so");
-    measure_func = casadi::external("meas", "/tmp/casadi_kf_baseline3_meas.so");
-    measure_jac_func = casadi::external("meas_jac", "/tmp/casadi_kf_baseline3_meas_jac.so");
+    process_func = casadi::external("process", "/tmp/casadi_kf_baseline4_process.so");
+    process_jac_func = casadi::external("process_jac", "/tmp/casadi_kf_baseline4_process_jac.so");
+    measure_func = casadi::external("meas", "/tmp/casadi_kf_baseline4_meas.so");
+    measure_jac_func = casadi::external("meas_jac", "/tmp/casadi_kf_baseline4_meas_jac.so");
 }
 
-void A1KFCombineLOWithFoot::process(Eigen::Matrix<double, EKF_STATE_SIZE, 1> state, 
+void A1KFCombineLOWithFootTerrain::process(Eigen::Matrix<double, EKF_STATE_SIZE, 1> state, 
                                                      Eigen::Matrix<double, CONTROL_SIZE, 1> prev_ctrl, 
                                                      Eigen::Matrix<double, CONTROL_SIZE, 1> ctrl, double dt) {
     // const std::lock_guard<std::mutex> lock(update_mutex);
@@ -299,7 +310,7 @@ void A1KFCombineLOWithFoot::process(Eigen::Matrix<double, EKF_STATE_SIZE, 1> sta
 }
 
 
-void A1KFCombineLOWithFoot::measure(Eigen::Matrix<double, EKF_STATE_SIZE, 1> state, 
+void A1KFCombineLOWithFootTerrain::measure(Eigen::Matrix<double, EKF_STATE_SIZE, 1> state, 
                                                      Eigen::Matrix<double, 3, 1> w, 
                                                      Eigen::Matrix<double, 12, 1> joint_ang, 
                                                      Eigen::Matrix<double, 12, 1> joint_vel) {

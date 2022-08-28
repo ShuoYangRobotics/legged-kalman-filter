@@ -23,21 +23,22 @@
    ctrl = [acc_x, acc_y, acc_z, ang_vel_x, ang_vel_y, ang_vel_z, dt]
             [0,    1,    2,     3,        4,        5,        6]
 
-   observation = [fk, vel] * 4
-                 [0, 1, 2, 3, 4, 5]
+   observation = [fk, vel, height] * 4
+                 [0, 1, 2, 3, 4, 5, 6,]
                 
  */
 #define EKF_STATE_SIZE 22
 #define CONTROL_SIZE 7
-#define OBSERVATION_SIZE 24   
+#define OBSERVATION_SIZE 28
+#define OBS_PER_LEG 7
 
 #define OPTI_OBSERVATION_SIZE 7 // observe position, velocity, and yaw using optitrack
 #define UPDATE_DT 0.002
 
 
-class A1KFCombineLOWithFoot : public A1KF {
+class A1KFCombineLOWithFootTerrain : public A1KF {
     public:
-        A1KFCombineLOWithFoot ();
+        A1KFCombineLOWithFootTerrain ();
         void init_filter(A1SensorData& data, Eigen::Vector3d _init_pos = Eigen::Vector3d(0,0,0.15));
         void update_filter(A1SensorData& data);
         void update_filter_with_opti(A1SensorData& data);
