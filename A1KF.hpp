@@ -19,8 +19,8 @@ class A1SensorData {
     public:
         A1SensorData() {
             for (size_t i = 0; i < 3; ++i) {
-                acc_filter[i] = MovingWindowFilter(20);
-                ang_vel_filter[i] = MovingWindowFilter(5);
+                acc_filter[i] = MovingWindowFilter(30);
+                ang_vel_filter[i] = MovingWindowFilter(15);
                 opti_euler_filter[i] = MovingWindowFilter(15); 
 
                 opti_pos_filter[i] = MovingWindowFilter(15);

@@ -23,8 +23,8 @@
    ctrl = [acc_x, acc_y, acc_z, ang_vel_x, ang_vel_y, ang_vel_z, dt]
             [0,    1,    2,     3,        4,        5,        6]
 
-   observation = [foot1 pos, foot2 pos, foot3 pos, foot4 pos, foot1 vel, foot2 vel, foot3 vel, foot4 vel]
-                     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+   observation = [fk, vel] * 4
+                 [0, 1, 2, 3, 4, 5]
                 
  */
 #define EKF_STATE_SIZE 22

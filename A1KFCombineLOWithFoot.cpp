@@ -102,7 +102,7 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData& data) {
                 =
                 (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.0001 * data.dt * eye3;  // foot position transition
 
-        measure_noise.block<3, 3>(i * 3, i * 3)
+        measure_noise.block<3, 3>(i * 6, i * 6)
                 =  0.01 * eye3;     // fk estimation
 
         measure_noise(i * 6 + 3, i * 6 + 3)
