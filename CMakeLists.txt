@@ -14,9 +14,9 @@ find_package(Eigen3 3.3)
 
 catkin_package(
   INCLUDE_DIRS include
-#   LIBRARIES
+  # LIBRARIES
   CATKIN_DEPENDS roscpp std_msgs geometry_msgs message_filters
-#   DEPENDS
+  # DEPENDS
 )
 
 include_directories(

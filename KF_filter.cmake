@@ -1,7 +1,7 @@
 # search for casadi in the environment
-find_package(casadi REQUIRED) 
+find_package(casadi REQUIRED)
 
-# Find the savitzky golay filter package and all its dependencies 
+# Find the savitzky golay filter package and all its dependencies
 find_package(gram_savitzky_golay REQUIRED)
 
 include_directories(
@@ -16,9 +16,10 @@ add_custom_target(compile_casadi_lib
 )
 
 # libraries
-add_library(kf_lib  
+add_library(kf_lib
   A1KF.hpp
   A1KFCombineLO.cpp
+  A1KFFootIMU.cpp
 )
 target_link_libraries(kf_lib
   ${catkin_LIBRARIES}
@@ -30,14 +31,14 @@ add_dependencies(kf_lib
 )
 
 # TEST executables
-add_executable(test_run_bag 
+add_executable(test_run_bag
   test/run_bag.cpp
 )
 target_link_libraries(test_run_bag
   kf_lib
 )
 
-add_executable(test_casadi_lib 
+add_executable(test_casadi_lib
   test/test_casadi_lib.cpp
 )
 target_link_libraries(test_casadi_lib
