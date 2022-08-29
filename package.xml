@@ -1,0 +1,22 @@
+<package format="2">
+  <name>legged-kalman-filter</name>
+  <version>0.1.0</version>
+  <description>Kelman filter for ROS.</description>
+  <maintainer email="example@example.com">author</maintainer>
+  <license>BSD</license>
+
+  <author>author</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>message_filters</depend>
+
+  <!-- <depend>std_msgs</depend> -->
+
+  <!-- <build_depend>message_generation</build_depend> -->
+
+  <doc_depend>doxygen</doc_depend>
+</package>

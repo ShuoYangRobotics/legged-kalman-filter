@@ -15,8 +15,8 @@
 
 /* only include one of the following three */
 
-// #include "../A1KFCombineLO.h"
-// A1KFCombineLO kf;  // Kalman filter Baseline 1
+#include "../A1KFCombineLO.h"
+A1KFCombineLO kf;  // Kalman filter Baseline 1
 
 // #include "../A1KFSeparateLO.h"
 // A1KFSeparateLO kf;  // Kalman filter Baseline 2 separate leg odometry velocites
@@ -24,8 +24,8 @@
 // #include "../A1KFCombineLOWithFoot.h"
 // A1KFCombineLOWithFoot kf;  // Kalman filter Baseline 3 with foot
 
-#include "../A1KFCombineLOWithFootTerrain.h"
-A1KFCombineLOWithFootTerrain kf;  // Kalman filter Baseline 4 with foot, with terrain factor 
+// #include "../A1KFCombineLOWithFootTerrain.h"
+// A1KFCombineLOWithFootTerrain kf;  // Kalman filter Baseline 4 with foot, with terrain factor 
 
 A1SensorData data;
 double curr_t;
@@ -109,10 +109,10 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         filterd_joint_msg.position[i] = data.joint_pos[i];
         filterd_joint_msg.velocity[i] = data.joint_vel[i];
     }
-    Eigen::Vector4d estimated_contact = kf.get_contacts();
-    for (int i = 0; i < NUM_LEG; ++i) {
-        filterd_joint_msg.velocity[NUM_DOF+i] = estimated_contact[i];
-    }
+    // Eigen::Vector4d estimated_contact = kf.get_contacts();
+    // for (int i = 0; i < NUM_LEG; ++i) {
+    //     filterd_joint_msg.velocity[NUM_DOF+i] = estimated_contact[i];
+    // }
     filterd_imu_pub.publish(filterd_imu_msg);
     filterd_joint_pub.publish(filterd_joint_msg);
 
