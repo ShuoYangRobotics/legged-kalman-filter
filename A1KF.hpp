@@ -34,6 +34,9 @@ class A1SensorData {
             dt = 0.001;  // because hardware_imu is at 1000Hz
             opti_dt = 0.005;  // because optitrack is at 200Hz
             data_lock  = new std::mutex();
+
+            foot_force_min = 999*Eigen::Matrix<double, NUM_LEG, 1>::Ones();
+            foot_force_max = -999*Eigen::Matrix<double, NUM_LEG, 1>::Ones();
         }
 
         /* IMU and joint data */
@@ -119,6 +122,27 @@ class A1SensorData {
             opti_average_dt /= opti_dt_values.size();
             data_lock->unlock();
         }
+
+        // input foot force and record bias
+        void input_foot_force(Eigen::Matrix<double, NUM_LEG, 1> forces) {
+            for (size_t i = 0; i< NUM_LEG; ++i) {
+                if (forces[i] < this-> foot_force_min[i]) {
+                    this-> foot_force_min[i] = 
+                        0.9 * this-> foot_force_min[i] + 0.1 * forces[i] ;
+                }
+                if (forces[i]  > this-> foot_force_max[i]) {
+                    this-> foot_force_max[i] = 
+                        0.9 * this-> foot_force_max[i] + 0.1 * forces[i] ;
+                }
+                // exponential decay, max force decays faster
+                this-> foot_force_min[i] *= 0.9991;
+                this-> foot_force_max[i] *= 0.997;
+                this-> foot_force_contact_threshold[i] = this-> foot_force_min[i] + 0.6*(this-> foot_force_max[i]-this-> foot_force_min[i]);
+                this-> plan_contacts[i] = 
+                    this-> foot_force[i] > this-> foot_force_contact_threshold[i]? 1.0 : 0.0;
+            }
+        }
+
         // data in IMU and jointState
         Eigen::Vector3d acc;
         Eigen::Vector3d ang_vel;
@@ -129,6 +153,12 @@ class A1SensorData {
         double dt;
         double average_dt;
 
+        // record foot force and record foot force bias
+        Eigen::Matrix<double, NUM_LEG,1> foot_force;
+        Eigen::Matrix<double, NUM_LEG,1> foot_force_min;
+        Eigen::Matrix<double, NUM_LEG,1> foot_force_max;
+        Eigen::Matrix<double, NUM_LEG,1> foot_force_contact_threshold;
+
         // data in optitrack position
         Eigen::Vector3d opti_pos;
         Eigen::Vector3d opti_vel;  // use SavitzkyGolayFilter to get smoothed velocity
@@ -136,6 +166,7 @@ class A1SensorData {
         bool opti_sglolay_initialized = false;
         double opti_dt;
         double opti_average_dt;
+
     private: 
         /* filters for IMU/joint data */
         MovingWindowFilter acc_filter[3];
