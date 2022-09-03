@@ -17,37 +17,20 @@ constexpr int NUM_DOF = 12;
 // for IMU data we apply mean filter to remove noise
 // for joint angle data, we apply mean filter to remove noise and then use SavitzkyGolayFilter to get joint velocity
 // For optitrack data we also use SavitzkyGolayFilter to get velocity
-class A1SensorData {
+class A1SensorDataInterface {
  public:
-  A1SensorData() {
-    for (size_t i = 0; i < 3; ++i) {
-      acc_filter[i] = MovingWindowFilter(30);
-      ang_vel_filter[i] = MovingWindowFilter(15);
-      opti_euler_filter[i] = MovingWindowFilter(15);
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-      opti_pos_filter[i] = MovingWindowFilter(15);
-      opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order, sgolay_order, sgolay_order, 1);
-    }
-    for (size_t i = 0; i < NUM_DOF; ++i) {
-      joint_pos_filter[i] = MovingWindowFilter(15);
-      joint_vel_filter[i] = MovingWindowFilter(15);
-      joint_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order, sgolay_order, sgolay_order, 1);
-    }
-    dt = 0.001;       // because hardware_imu is at 1000Hz
-    opti_dt = 0.005;  // because optitrack is at 200Hz
-    data_lock = new std::mutex();
-  }
+  using vAcc = Eigen::Matrix<double, 3, 1>;
+  using vAngVel = Eigen::Matrix<double, 3, 1>;
+  using vOptiPos = Eigen::Matrix<double, 3, 1>;
+  using vJointPos = Eigen::Matrix<double, NUM_DOF, 1>;
+  using vJointVel = Eigen::Matrix<double, NUM_DOF, 1>;
 
   /* IMU and joint data */
-  void input_imu(Eigen::Matrix<double, 3, 1> acc, Eigen::Matrix<double, 3, 1> ang_vel) {
-    for (size_t i = 0; i < 3; ++i) {
-      this->acc[i] = acc_filter[i].CalculateAverage(acc[i]);
-      this->ang_vel[i] = ang_vel_filter[i].CalculateAverage(ang_vel[i]);
-    }
-  }
+  virtual void input_imu(const vAcc& acc, const vAngVel& ang_vel) = 0;
 
-  void input_leg(Eigen::Matrix<double, NUM_DOF, 1> joint_pos, Eigen::Matrix<double, NUM_DOF, 1> joint_vel,
-                 Eigen::Matrix<double, NUM_LEG, 1> contact) {
+  void input_leg(const vJointPos& joint_pos, const vJointVel& joint_vel, const Eigen::Matrix<double, NUM_LEG, 1>& contact) {
     for (size_t i = 0; i < NUM_DOF; ++i) {
       this->joint_pos[i] = joint_pos_filter[i].CalculateAverage(joint_pos[i]);
       // this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
@@ -80,8 +63,9 @@ class A1SensorData {
   }
 
   /* opti track data */
-  void input_opti_pos(Eigen::Matrix<double, 3, 1> _opti_pos) {
-    data_lock->lock();
+  void input_opti_pos(const vOptiPos& _opti_pos) {
+    const std::lock_guard<std::mutex> lock(data_lock);
+
     for (size_t i = 0; i < 3; i++) {
       this->opti_pos[i] = opti_pos_filter[i].CalculateAverage(_opti_pos[i]);
 
@@ -96,10 +80,9 @@ class A1SensorData {
         this->opti_vel[i] = opti_vel_filter_sgolay[i].filter(opti_sgolay_values[i]) / opti_average_dt;
       }
     }
-    data_lock->unlock();
   }
 
-  void input_opti_euler(Eigen::Vector3d euler_angs) {
+  void input_opti_euler(const Eigen::Vector3d& euler_angs) {
     for (size_t i = 0; i < 3; i++) {
       this->opti_euler[i] = opti_euler_filter[i].CalculateAverage(euler_angs[i]);
     }
@@ -109,7 +92,8 @@ class A1SensorData {
   bool joint_vel_ready() { return joint_sglolay_initialized; }
 
   void input_opti_dt(double opti_dt) {
-    data_lock->lock();
+    const std::lock_guard<std::mutex> lock(data_lock);
+
     this->opti_dt = opti_dt;
     opti_dt_values.push_back(opti_dt);
     if (opti_dt_values.size() > sgolay_frame) {
@@ -120,14 +104,13 @@ class A1SensorData {
       opti_average_dt += opti_dt_values[i];
     }
     opti_average_dt /= opti_dt_values.size();
-    data_lock->unlock();
   }
-  // data in IMU and jointState
-  Eigen::Vector3d acc;
-  Eigen::Vector3d ang_vel;
+
+  // Data in IMU and jointState
   Eigen::Vector3d opti_euler;
-  Eigen::Matrix<double, NUM_DOF, 1> joint_pos;
-  Eigen::Matrix<double, NUM_DOF, 1> joint_vel;
+
+  vJointPos joint_pos;
+  vJointVel joint_vel;
   Eigen::Matrix<double, NUM_LEG, 1> plan_contacts;
   double dt;
   double average_dt;
@@ -140,10 +123,8 @@ class A1SensorData {
   double opti_dt;
   double opti_average_dt;
 
- private:
+ protected:
   /* filters for IMU/joint data */
-  MovingWindowFilter acc_filter[3];
-  MovingWindowFilter ang_vel_filter[3];
   MovingWindowFilter joint_pos_filter[NUM_DOF];
   MovingWindowFilter joint_vel_filter[NUM_DOF];
   gram_sg::SavitzkyGolayFilter joint_vel_filter_sgolay[NUM_DOF];
@@ -161,7 +142,45 @@ class A1SensorData {
   const size_t sgolay_order = 7;
   const size_t sgolay_frame = 15;  // must be sgolay_order*2+1
 
-  std::mutex* data_lock;
+  mutable std::mutex data_lock;
+};
+
+class A1SensorData : public A1SensorDataInterface {
+ public:
+  A1SensorData() {
+    for (size_t i = 0; i < 3; ++i) {
+      acc_filter[i] = MovingWindowFilter(30);
+      ang_vel_filter[i] = MovingWindowFilter(15);
+      opti_euler_filter[i] = MovingWindowFilter(15);
+
+      opti_pos_filter[i] = MovingWindowFilter(15);
+      opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order, sgolay_order, sgolay_order, 1);
+    }
+    for (size_t i = 0; i < NUM_DOF; ++i) {
+      joint_pos_filter[i] = MovingWindowFilter(15);
+      joint_vel_filter[i] = MovingWindowFilter(15);
+      joint_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order, sgolay_order, sgolay_order, 1);
+    }
+    dt = 0.001;       // because hardware_imu is at 1000Hz
+    opti_dt = 0.005;  // because optitrack is at 200Hz
+  }
+
+  /* IMU and joint data */
+  void input_imu(const vAcc& acc, const vAngVel& ang_vel) override {
+    for (size_t i = 0; i < 3; ++i) {
+      this->acc[i] = acc_filter[i].CalculateAverage(acc[i]);
+      this->ang_vel[i] = ang_vel_filter[i].CalculateAverage(ang_vel[i]);
+    }
+  }
+
+  // data in IMU and jointState
+  Eigen::Vector3d acc;
+  Eigen::Vector3d ang_vel;
+
+ private:
+  /* filters for IMU/joint data */
+  MovingWindowFilter acc_filter[3];
+  MovingWindowFilter ang_vel_filter[3];
 };
 
 class A1KF {
