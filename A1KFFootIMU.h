@@ -46,11 +46,12 @@ class A1KFFootIMU : public A1KF {
 
   using vState = Eigen::Matrix<double, EKF_STATE_SIZE, 1>;
   using vControl = Eigen::Matrix<double, CONTROL_SIZE, 1>;
+  using VMeasure = Eigen::Matrix<double, OBSERVATION_SIZE, 1>;
 
   A1KFFootIMU();
-  void init_filter(A1SensorData& data, const Eigen::Vector3d& _init_pos = Eigen::Vector3d(0, 0, 0.15));
-  void update_filter(A1SensorData& data);
-  void update_filter_with_opti(A1SensorData& data);
+  void init_filter(A1FootIMUSensorData& data, const Eigen::Vector3d& _init_pos = Eigen::Vector3d(0, 0, 0.15));
+  void update_filter(A1FootIMUSensorData& data);
+  void update_filter_with_opti(A1FootIMUSensorData& data);
 
   vState get_state() const { return curr_state; }
 
@@ -92,7 +93,7 @@ class A1KFFootIMU : public A1KF {
   Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, EKF_STATE_SIZE> opti_jacobian;
   Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, OPTI_OBSERVATION_SIZE> opti_noise;
 
-  std::mutex update_mutex;
+  mutable std::mutex update_mutex;
 
   casadi::Function process_func;
   casadi::Function process_jac_func;

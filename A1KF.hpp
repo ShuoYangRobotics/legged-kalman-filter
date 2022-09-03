@@ -28,11 +28,11 @@ class A1SensorDataInterface {
   using vJointVel = Eigen::Matrix<double, NUM_DOF, 1>;
 
   enum ImuIndex {
-    BODY_IMU = 0,
-    FOOT_FL_IMU,  // Front left
-    FOOT_FR_IMU,  // Front right
-    FOOT_RL_IMU,  // Rear left
-    FOOT_RR_IMU,  // Rear right
+    FOOT_FL_IMU = 0,  // Front left
+    FOOT_FR_IMU,      // Front right
+    FOOT_RL_IMU,      // Rear left
+    FOOT_RR_IMU,      // Rear right
+    BODY_IMU,
     IMU_MAX_SIZE  // Helper enum
   };
 
