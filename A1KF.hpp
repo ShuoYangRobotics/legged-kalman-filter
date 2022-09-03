@@ -27,8 +27,33 @@ class A1SensorDataInterface {
   using vJointPos = Eigen::Matrix<double, NUM_DOF, 1>;
   using vJointVel = Eigen::Matrix<double, NUM_DOF, 1>;
 
+  enum ImuIndex {
+    BODY_IMU = 0,
+    FOOT_FL_IMU,  // Front left
+    FOOT_FR_IMU,  // Front right
+    FOOT_RL_IMU,  // Rear left
+    FOOT_RR_IMU,  // Rear right
+    IMU_MAX_SIZE  // Helper enum
+  };
+
+  A1SensorDataInterface() {
+    for (size_t i = 0; i < 3; ++i) {
+      opti_euler_filter[i] = MovingWindowFilter(15);
+
+      opti_pos_filter[i] = MovingWindowFilter(15);
+      opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order, sgolay_order, sgolay_order, 1);
+    }
+    for (size_t i = 0; i < NUM_DOF; ++i) {
+      joint_pos_filter[i] = MovingWindowFilter(15);
+      joint_vel_filter[i] = MovingWindowFilter(15);
+      joint_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order, sgolay_order, sgolay_order, 1);
+    }
+    dt = 0.001;       // because hardware_imu is at 1000Hz
+    opti_dt = 0.005;  // because optitrack is at 200Hz
+  }
+
   /* IMU and joint data */
-  virtual void input_imu(const vAcc& acc, const vAngVel& ang_vel) = 0;
+  virtual void input_imu(const vAcc& acc, const vAngVel& ang_vel, ImuIndex imu_index) = 0;
 
   void input_leg(const vJointPos& joint_pos, const vJointVel& joint_vel, const Eigen::Matrix<double, NUM_LEG, 1>& contact) {
     for (size_t i = 0; i < NUM_DOF; ++i) {
@@ -123,7 +148,7 @@ class A1SensorDataInterface {
   double opti_dt;
   double opti_average_dt;
 
- protected:
+ private:
   /* filters for IMU/joint data */
   MovingWindowFilter joint_pos_filter[NUM_DOF];
   MovingWindowFilter joint_vel_filter[NUM_DOF];
@@ -142,6 +167,7 @@ class A1SensorDataInterface {
   const size_t sgolay_order = 7;
   const size_t sgolay_frame = 15;  // must be sgolay_order*2+1
 
+ protected:
   mutable std::mutex data_lock;
 };
 
@@ -151,22 +177,11 @@ class A1SensorData : public A1SensorDataInterface {
     for (size_t i = 0; i < 3; ++i) {
       acc_filter[i] = MovingWindowFilter(30);
       ang_vel_filter[i] = MovingWindowFilter(15);
-      opti_euler_filter[i] = MovingWindowFilter(15);
-
-      opti_pos_filter[i] = MovingWindowFilter(15);
-      opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order, sgolay_order, sgolay_order, 1);
     }
-    for (size_t i = 0; i < NUM_DOF; ++i) {
-      joint_pos_filter[i] = MovingWindowFilter(15);
-      joint_vel_filter[i] = MovingWindowFilter(15);
-      joint_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order, sgolay_order, sgolay_order, 1);
-    }
-    dt = 0.001;       // because hardware_imu is at 1000Hz
-    opti_dt = 0.005;  // because optitrack is at 200Hz
   }
 
   /* IMU and joint data */
-  void input_imu(const vAcc& acc, const vAngVel& ang_vel) override {
+  void input_imu(const vAcc& acc, const vAngVel& ang_vel, ImuIndex imu_index = BODY_IMU) override {
     for (size_t i = 0; i < 3; ++i) {
       this->acc[i] = acc_filter[i].CalculateAverage(acc[i]);
       this->ang_vel[i] = ang_vel_filter[i].CalculateAverage(ang_vel[i]);
@@ -181,6 +196,39 @@ class A1SensorData : public A1SensorDataInterface {
   /* filters for IMU/joint data */
   MovingWindowFilter acc_filter[3];
   MovingWindowFilter ang_vel_filter[3];
+};
+
+class A1FootIMUSensorData : public A1SensorDataInterface {
+ public:
+  A1FootIMUSensorData() {
+    for (size_t i = 0; i < IMU_MAX_SIZE; ++i) {
+      for (size_t j = 0; i < 3; ++i) {
+        acc_filter[i][j] = MovingWindowFilter(30);
+        ang_vel_filter[i][j] = MovingWindowFilter(15);
+      }
+    }
+  }
+
+  /* IMU and joint data */
+  void input_imu(const vAcc& acc, const vAngVel& ang_vel, ImuIndex imu_index) override {
+    assert(imu_index >= 0 && imu_index < IMU_MAX_SIZE);
+
+    for (size_t i = 0; i < 3; ++i) {
+      this->acc[imu_index][i] = acc_filter[imu_index][i].CalculateAverage(acc[i]);
+      this->ang_vel[imu_index][i] = ang_vel_filter[imu_index][i].CalculateAverage(ang_vel[i]);
+    }
+  }
+
+  const Eigen::Vector3d& getAcc(ImuIndex imu_index) const { return acc[imu_index]; }
+  const Eigen::Vector3d& getAngVel(ImuIndex imu_index) const { return ang_vel[imu_index]; }
+
+  // Data in IMU and jointState
+  Eigen::Vector3d acc[IMU_MAX_SIZE];
+  Eigen::Vector3d ang_vel[IMU_MAX_SIZE];
+
+ private:
+  MovingWindowFilter acc_filter[IMU_MAX_SIZE][3];
+  MovingWindowFilter ang_vel_filter[IMU_MAX_SIZE][3];
 };
 
 class A1KF {
