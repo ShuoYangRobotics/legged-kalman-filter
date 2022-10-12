@@ -7,6 +7,7 @@ find_package(gram_savitzky_golay REQUIRED)
 include_directories(
   ${CASADI_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
+  ../../include
 )
 
 # libraries

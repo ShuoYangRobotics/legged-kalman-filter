@@ -3,7 +3,7 @@
 #include <mutex>
 #include <deque>
 #include <Eigen/Dense>
-#include "filter.hpp"
+#include "utils/MovingWindowFilter.hpp"
 #include <gram_savitzky_golay/gram_savitzky_golay.h>
 
 #define NUM_LEG 4

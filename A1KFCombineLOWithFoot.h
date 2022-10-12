@@ -10,7 +10,7 @@
 #include <sensor_msgs/JointState.h>
 
 #include "A1KF.hpp"
-#include "../../../include/utils/A1Kinematics.h"
+#include "utils/A1Kinematics.h"
 
 /* 
    Baseline 3
