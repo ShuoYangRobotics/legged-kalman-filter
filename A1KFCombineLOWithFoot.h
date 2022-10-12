@@ -10,7 +10,7 @@
 #include <sensor_msgs/JointState.h>
 
 #include "A1KF.hpp"
-#include "../legKinematics/A1Kinematics.h"
+#include "../../../include/utils/A1Kinematics.h"
 
 /* 
    Baseline 3
@@ -84,7 +84,7 @@ class A1KFCombineLOWithFoot : public A1KF {
         casadi::Function measure_func;
         casadi::Function measure_jac_func;
 
-        A1Kinematics kinematics;       
+        legged::A1Kinematics kinematics;       
         double leg_offset_x[4] = {};
         double leg_offset_y[4] = {};
         // for each leg, there is an offset between the body frame and the hip motor (fx, fy)
