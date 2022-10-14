@@ -19,19 +19,19 @@ class A1SensorData {
     public:
         A1SensorData() {
             for (size_t i = 0; i < 3; ++i) {
-                acc_filter[i] = MovingWindowFilter(5);
-                ang_vel_filter[i] = MovingWindowFilter(5);
+                acc_filter[i] = MovingWindowFilter(40);
+                ang_vel_filter[i] = MovingWindowFilter(40);
                 opti_euler_filter[i] = MovingWindowFilter(5); 
 
                 opti_pos_filter[i] = MovingWindowFilter(15);
                 opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
             for (size_t i = 0; i < NUM_DOF; ++i) {
-                joint_pos_filter[i] = MovingWindowFilter(5);
-                joint_vel_filter[i] = MovingWindowFilter(5);
+                joint_pos_filter[i] = MovingWindowFilter(15);
+                joint_vel_filter[i] = MovingWindowFilter(15);
                 joint_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
-            dt = 0.001;  // because hardware_imu is at 1000Hz
+            dt = 0.00125;  // because hardware_imu is at 1000Hz
             opti_dt = 0.005;  // because optitrack is at 200Hz
             data_lock  = new std::mutex();
 
