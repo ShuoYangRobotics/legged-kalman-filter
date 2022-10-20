@@ -15,6 +15,9 @@
 // this makes inocchioInterfacePtr_->getModel() work
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/algorithm/jacobian.hpp>
+#include <pinocchio/algorithm/kinematics.hpp> // getBase
+#include <pinocchio/algorithm/crba.hpp>       //   computeCRBA
+#include <pinocchio/algorithm/rnea.hpp>       //  nonLinearEffects
 // CentroidalModelPinocchioMapping
 #include <ocs2_centroidal_model/CentroidalModelPinocchioMapping.h>
 // PinocchioEndEffectorKinematics
@@ -64,19 +67,6 @@ int main(int argc, char ** argv)
                    0.05, 0.72, -1.44,                   // front-right 
                    -0.05, 0.72, -1.44;                  // rear-right 
 
-    const auto& model = pinocchioInterfacePtr_->getModel();
-    auto& data = pinocchioInterfacePtr_->getData();
-    pinocchio::forwardKinematics(model, data, measured_q_, measured_v_);
-    pinocchio::updateFramePlacements(model, data);
-    pinocchio::computeJointJacobians(model, data);
-
-    // the angle
-    std::vector<vector3_t> pos_measured = ee_kinematics.getPosition(vector_t());
-    std::cout << "front-left  pos_measured"<< std::endl << pos_measured[0] << std::endl; // front-left 
-    std::cout << "front-right  pos_measured"<< std::endl << pos_measured[1] << std::endl; // front-right 
-    std::cout << "rear-left  pos_measured"<< std::endl << pos_measured[2] << std::endl; // rear-left 
-    std::cout << "rear-right  pos_measured"<< std::endl << pos_measured[3] << std::endl; // rear-right 
-
     // foot force and dynamics 
     vector_t foot_force = vector_t(pinocchioInterfacePtr_->getModel().nq - 6);
     foot_force <<    0.0, 0.0, centroidalModelInfo_.robotMass*pinocchioInterfacePtr_->getModel().gravity/4.0,                   // front-left 
@@ -87,6 +77,44 @@ int main(int argc, char ** argv)
     vector_t joint_tau = vector_t(pinocchioInterfacePtr_->getModel().nq); joint_tau.setZero();
     
     // how to get $M(q)\ddot{q} + h(q,\dot{q}) = S\tau + J_c^T(q)f$
+    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
+    const auto& model = pinocchioInterfacePtr_->getModel();
+    auto& data = pinocchioInterfacePtr_->getData();
+    pinocchio::forwardKinematics(model, data, measured_q_, measured_v_);
+    pinocchio::updateFramePlacements(model, data);
+    pinocchio::computeJointJacobians(model, data);
 
+    matrix_t j_, dj_;
+    pinocchio::crba(model, data, measured_q_);
+    data.M.triangularView<Eigen::StrictlyLower>() = data.M.transpose().triangularView<Eigen::StrictlyLower>();
+    pinocchio::nonLinearEffects(model, data, measured_q_, measured_v_);
+    j_ = matrix_t(3 * centroidalModelInfo_.numThreeDofContacts, centroidalModelInfo_.generalizedCoordinatesNum);
+    for (size_t i = 0; i < centroidalModelInfo_.numThreeDofContacts; ++i)
+    {
+        Eigen::Matrix<scalar_t, 6, Eigen::Dynamic> jac;
+        jac.setZero(6, centroidalModelInfo_.generalizedCoordinatesNum);
+        pinocchio::getFrameJacobian(model, data, centroidalModelInfo_.endEffectorFrameIndices[i], pinocchio::LOCAL_WORLD_ALIGNED, jac);
+        j_.block(3 * i, 0, 3, centroidalModelInfo_.generalizedCoordinatesNum) = jac.template topRows<3>();
+    }
+
+    pinocchio::computeJointJacobiansTimeVariation(model, data, measured_q_, measured_v_);
+    dj_ = matrix_t(3 * centroidalModelInfo_.numThreeDofContacts, centroidalModelInfo_.generalizedCoordinatesNum);
+    for (size_t i = 0; i < centroidalModelInfo_.numThreeDofContacts; ++i)
+    {
+        Eigen::Matrix<scalar_t, 6, Eigen::Dynamic> jac;
+        jac.setZero(6, centroidalModelInfo_.generalizedCoordinatesNum);
+        pinocchio::getFrameJacobianTimeVariation(model, data, centroidalModelInfo_.endEffectorFrameIndices[i],
+                                                pinocchio::LOCAL_WORLD_ALIGNED, jac);
+        dj_.block(3 * i, 0, 3, centroidalModelInfo_.generalizedCoordinatesNum) = jac.template topRows<3>();
+    }
+    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+    auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "compute time: " << microseconds.count() << "us" << std::endl;
+    // the angle
+    std::vector<vector3_t> pos_measured = ee_kinematics.getPosition(vector_t());
+    std::cout << "front-left  pos_measured"<< std::endl << pos_measured[0] << std::endl; // front-left 
+    std::cout << "front-right  pos_measured"<< std::endl << pos_measured[1] << std::endl; // front-right 
+    std::cout << "rear-left  pos_measured"<< std::endl << pos_measured[2] << std::endl; // rear-left 
+    std::cout << "rear-right  pos_measured"<< std::endl << pos_measured[3] << std::endl; // rear-right 
     return 0;
 }
