@@ -4,6 +4,11 @@ find_package(casadi REQUIRED)
 # Find the savitzky golay filter package and all its dependencies 
 find_package(gram_savitzky_golay REQUIRED)
 
+
+# add pinocchio 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(pinocchio REQUIRED pinocchio)
+
 include_directories(
   ${CASADI_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
@@ -42,6 +47,14 @@ add_executable(test_casadi_lib test/test_casadi_lib.cpp)
 target_link_libraries(test_casadi_lib
         casadi
 )
+
+add_executable(test_pinocchio_unitree test/test_pinocchio_unitree.cpp)
+target_link_libraries(test_pinocchio_unitree
+        ${catkin_LIBRARIES}
+        ${pinocchio_LIBRARIES}
+)
+# ocs2 is found by outer cmake list file
+target_compile_options(test_pinocchio_unitree PUBLIC ${OCS2_CXX_FLAGS})   
 
 # should be moved to main code base
 #add_executable(test_rotation_utils test/test_rotations.cpp
