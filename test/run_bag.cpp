@@ -64,7 +64,7 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
 
     //TODO: init filter if there is no opti data after 0.01s?
 
-    if ( !kf.is_inited() && first_sensor_received == false ) {
+    if ( !kf.is_inited()) {
         // the callback is called the first time, filter may not be inited
         dt = 0;
         curr_t = t;
@@ -140,16 +140,16 @@ double opti_curr_t = 0;
 ros::Publisher filterd_opti_vel_pub;
 bool opti_callback_first_received = false;
 void opti_callback(const geometry_msgs::PoseStamped::ConstPtr& opti_msg) {
-    std::cout<<"opti_callback"<<std::endl;
+    // std::cout<<"opti_callback"<<std::endl;
     double opti_t = opti_msg->header.stamp.toSec();
 
     Eigen::Matrix<double, 3, 1> opti_pos; 
     opti_pos << opti_msg->pose.position.x, opti_msg->pose.position.y, opti_msg->pose.position.z;
 
     // only init data after sensor and opti are both received
-    if ( !kf.is_inited() && first_sensor_received == true) {
-        kf.init_filter(data, opti_pos);
-    }
+    // if ( !kf.is_inited() && first_sensor_received == true) {
+    //     kf.init_filter(data, opti_pos);
+    // }
         
     // update sensor data
     if (opti_callback_first_received == false) {
@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
     ros::NodeHandle nh;
 
     /* subscribers */
-    ros::Subscriber opti_sub = nh.subscribe("/mocap_node/Robot_1/pose", 30, opti_callback);
+    // ros::Subscriber opti_sub = nh.subscribe("/mocap_node/Robot_1/pose", 30, opti_callback);
 
     message_filters::Subscriber<sensor_msgs::Imu> imu_sub;
     message_filters::Subscriber<sensor_msgs::JointState> joint_state_sub;
@@ -223,7 +223,7 @@ int main(int argc, char **argv) {
     // this is the smoothed velocity we get from optitrack
     filterd_opti_vel_pub = nh.advertise<nav_msgs::Odometry>("/a1_opti_filterd_vel", 30);
     
-    myFile = std::ofstream("/root/A1_ctrl_ws/src/A1_Ctrl/bags/output/cmu_stadium_baseline2.csv");
+    myFile = std::ofstream("/home/REXOperator/legged_ctrl_ws/bags/output/1017_aaron_lab1.csv");
     // ros loop 
     ros::Rate loop_rate(100);
     while (ros::ok()) {

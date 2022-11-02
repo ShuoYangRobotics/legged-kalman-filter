@@ -19,16 +19,16 @@ class A1SensorData {
     public:
         A1SensorData() {
             for (size_t i = 0; i < 3; ++i) {
-                acc_filter[i] = MovingWindowFilter(40);
-                ang_vel_filter[i] = MovingWindowFilter(40);
+                acc_filter[i] = MovingWindowFilter(5);
+                ang_vel_filter[i] = MovingWindowFilter(5);
                 opti_euler_filter[i] = MovingWindowFilter(5); 
 
                 opti_pos_filter[i] = MovingWindowFilter(15);
                 opti_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
             for (size_t i = 0; i < NUM_DOF; ++i) {
-                joint_pos_filter[i] = MovingWindowFilter(15);
-                joint_vel_filter[i] = MovingWindowFilter(15);
+                joint_pos_filter[i] = MovingWindowFilter(5);
+                joint_vel_filter[i] = MovingWindowFilter(5);
                 joint_vel_filter_sgolay[i] = gram_sg::SavitzkyGolayFilter(sgolay_order,sgolay_order,sgolay_order,1);
             }
             dt = 0.00125;  // because hardware_imu is at 1000Hz
@@ -37,6 +37,8 @@ class A1SensorData {
 
             foot_force_min = 999*Eigen::Matrix<double, NUM_LEG, 1>::Ones();
             foot_force_max = -999*Eigen::Matrix<double, NUM_LEG, 1>::Ones();
+            init_opti_pos_received = false;
+            init_opti_pos.setZero();
         }
 
         /* IMU and joint data */
@@ -82,17 +84,22 @@ class A1SensorData {
         /* opti track data */
         void input_opti_pos(Eigen::Matrix<double, 3, 1> _opti_pos) {
             data_lock->lock();
+            if (init_opti_pos_received == false) {
+                init_opti_pos = _opti_pos;
+                init_opti_pos_received = true;
+            }
+            Eigen::Matrix<double, 3, 1> shifted_pos = _opti_pos - init_opti_pos;
             for (size_t i = 0; i < 3; i++) {
-                this->opti_pos[i] = opti_pos_filter[i].CalculateAverage(_opti_pos[i]);
+                this->opti_pos[i] = opti_pos_filter[i].CalculateAverage(shifted_pos[i]);
                 
                 if (opti_sgolay_values[i].size() < sgolay_frame) {
                     this->opti_vel[i] = 0.0;
-                    opti_sgolay_values[i].push_back(_opti_pos[i]);
+                    opti_sgolay_values[i].push_back(shifted_pos[i]);
                     opti_sglolay_initialized = false;
                 } else {
                     opti_sglolay_initialized = true;
                     opti_sgolay_values[i].pop_front();
-                    opti_sgolay_values[i].push_back(_opti_pos[i]);
+                    opti_sgolay_values[i].push_back(shifted_pos[i]);
                     this->opti_vel[i] = opti_vel_filter_sgolay[i].filter(opti_sgolay_values[i])/opti_average_dt;
                 }
             }
@@ -161,6 +168,9 @@ class A1SensorData {
 
         // data in optitrack position
         Eigen::Vector3d opti_pos;
+        bool init_opti_pos_received = false;
+        Eigen::Vector3d init_opti_pos;  // the first time receiving opti pos, record it, all
+                                        // subsequent measurements must substract this 
         Eigen::Vector3d opti_vel;  // use SavitzkyGolayFilter to get smoothed velocity
         bool joint_sglolay_initialized = false;
         bool opti_sglolay_initialized = false;
