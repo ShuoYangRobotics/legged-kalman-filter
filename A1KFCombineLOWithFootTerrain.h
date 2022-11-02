@@ -13,7 +13,7 @@
 #include "utils/A1Kinematics.h"
 
 /* 
-   Baseline 3
+   Baseline 4
    This filter follows http://www.roboticsproceedings.org/rss08/p03.pdf
    We do not consider bias here
 
