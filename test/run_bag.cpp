@@ -25,7 +25,10 @@
 // A1KFCombineLOWithFoot kf;  // Kalman filter Baseline 3 with foot
 
 #include "../A1KFCombineLOWithFootTerrain.h"
+#include "../A1KFQP.h"
 A1KFCombineLOWithFootTerrain kf;  // Kalman filter Baseline 4 with foot, with terrain factor 
+
+A1KFQP kf_qp;
 
 A1SensorData data;
 double curr_t;
@@ -64,14 +67,14 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
 
     //TODO: init filter if there is no opti data after 0.01s?
 
-    if ( !kf.is_inited()) {
+    if ( !kf_qp.is_inited()) {
         // the callback is called the first time, filter may not be inited
         dt = 0;
         curr_t = t;
         data.input_dt(dt);
         // init the filter using optitrack data, not here
-        kf.init_filter(data);
-    } else if ( !kf.is_inited()) {
+        kf_qp.init_filter(data);
+    } else if ( !kf_qp.is_inited()) {
         // filter may not be inited even after the callback is called multiple times
         dt = t- curr_t;
         data.input_dt(dt);
@@ -80,7 +83,7 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         dt = t- curr_t;
         
         data.input_dt(dt);
-        kf.update_filter(data);
+        kf_qp.update_filter(data);
         curr_t = t;
     }
     // debug print filtered data
@@ -109,14 +112,14 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         filterd_joint_msg.position[i] = data.joint_pos[i];
         filterd_joint_msg.velocity[i] = data.joint_vel[i];
     }
-    Eigen::Vector4d estimated_contact = kf.get_contacts();
+    Eigen::Vector4d estimated_contact = kf_qp.get_contacts();
     for (int i = 0; i < NUM_LEG; ++i) {
         filterd_joint_msg.velocity[NUM_DOF+i] = estimated_contact[i];
     }
     filterd_imu_pub.publish(filterd_imu_msg);
     filterd_joint_pub.publish(filterd_joint_msg);
 
-    Eigen::Matrix<double, EKF_STATE_SIZE,1> kf_state = kf.get_state();
+    Eigen::Matrix<double, EKF_STATE_SIZE,1> kf_state = kf_qp.get_state();
     nav_msgs::Odometry filterd_pos_msg;
     filterd_pos_msg.header.stamp = ros::Time::now();
     filterd_pos_msg.pose.pose.position.x = kf_state[0];
@@ -228,7 +231,7 @@ int main(int argc, char **argv) {
     ros::Rate loop_rate(100);
     while (ros::ok()) {
         // Eigen::Matrix<double, 10,1> est_state = kf.get_state();
-        Eigen::Matrix<double, EKF_STATE_SIZE,1> est_state = kf.get_state();
+        Eigen::Matrix<double, EKF_STATE_SIZE,1> est_state = kf_qp.get_state();
         // std::cout << "est_state: " << est_state.transpose() << std::endl;
         // save position to a csv file
         myFile << est_state[0] << "," << est_state[1] << "," << est_state[2] << "\n";

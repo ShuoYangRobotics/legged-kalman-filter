@@ -25,6 +25,18 @@ add_library(kf_lib
         ../../utils/A1Kinematics.cpp
 )
 
+add_library(kf_qp_lib
+        A1KF.hpp
+        A1KFQP.cpp
+)
+
+# Find OSQP
+include_directories(
+        /usr/local/include/osqp
+)
+find_package(OsqpEigen REQUIRED)
+
+
 # compile casadi_lib
 execute_process(
         COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/casadi_lib/compile_casadi.sh
@@ -37,9 +49,11 @@ execute_process(
 add_executable(test_run_bag test/run_bag.cpp)
 target_link_libraries(test_run_bag
         kf_lib
+        kf_qp_lib
         ${catkin_LIBRARIES}
         casadi
         gram_savitzky_golay::gram_savitzky_golay
+        OsqpEigen::OsqpEigen 
         )
 
 
