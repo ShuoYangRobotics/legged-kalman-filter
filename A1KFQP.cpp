@@ -38,6 +38,8 @@ A1KFQP::A1KFQP(): A1KF() {
     hessian_.resize(EKF_STATE_SIZE, EKF_STATE_SIZE); hessian_.setZero(); 
     gradient_.resize(EKF_STATE_SIZE); gradient_.setZero(); 
 
+    linearMatrix.resize(EKF_STATE_SIZE,EKF_STATE_SIZE);  linearMatrix.setIdentity();
+
     lowerBound_.resize(EKF_STATE_SIZE); 
     upperBound_.resize(EKF_STATE_SIZE); 
 
@@ -136,7 +138,7 @@ void A1KFQP::update_filter(A1SensorData& data) {
     measure(x01, data.ang_vel, data.joint_pos, data.joint_vel);
 
     hessian_ = P01.inverse() + measurement_jacobian.transpose()*measure_noise.inverse()*measurement_jacobian;
-    gradient_ = 2*measurement.transpose()*measure_noise.inverse()*measurement_jacobian;
+    gradient_ = 2*measurement.transpose()*measure_noise.inverse()*measurement_jacobian; // notice the sign here 
 
     sparse_hessian_ = hessian_.sparseView();    
     
@@ -147,13 +149,16 @@ void A1KFQP::update_filter(A1SensorData& data) {
     solver.settings()->setWarmStart(true);
 
     solver.data()->setNumberOfVariables(EKF_STATE_SIZE);
-    solver.data()->setNumberOfConstraints(0);
+    solver.data()->setNumberOfConstraints(EKF_STATE_SIZE);
+    cons_mat_ = linearMatrix.sparseView();
+    solver.data()->setLinearConstraintsMatrix(cons_mat_);
+    solver.data()->setLowerBound(lowerBound_);
+    solver.data()->setUpperBound(upperBound_);
+    
     sparse_hessian_ = hessian_.sparseView();
     solver.data()->setHessianMatrix(sparse_hessian_);
     solver.data()->setGradient(gradient_);
     
-    solver.data()->setLowerBound(lowerBound_);
-    solver.data()->setUpperBound(upperBound_);
     solver.initSolver();
 
     solver.solveProblem();

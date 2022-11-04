@@ -127,10 +127,12 @@ class A1KFQP : public A1KF {
 
         // OSQP
         // OsqpEigen::Solver solver;
+        Eigen::MatrixXd linearMatrix;
         Eigen::VectorXd lowerBound_; 
         Eigen::VectorXd upperBound_; 
         Eigen::VectorXd gradient_; 
         Eigen::MatrixXd hessian_; 
         Eigen::SparseMatrix<double> sparse_hessian_;
+        Eigen::SparseMatrix<double, Eigen::ColMajor> cons_mat_;
 
 };
