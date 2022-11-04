@@ -13,21 +13,11 @@
 #include <geometry_msgs/PoseStamped.h>
 
 
-/* only include one of the following three */
-
-// #include "../A1KFCombineLO.h"
-// A1KFCombineLO kf;  // Kalman filter Baseline 1
-
-// #include "../A1KFSeparateLO.h"
-// A1KFSeparateLO kf;  // Kalman filter Baseline 2 separate leg odometry velocites
-
-// #include "../A1KFCombineLOWithFoot.h"
-// A1KFCombineLOWithFoot kf;  // Kalman filter Baseline 3 with foot
 
 #include "../A1KFCombineLOWithFootTerrain.h"
 #include "../A1KFQP.h"
-A1KFCombineLOWithFootTerrain kf;  // Kalman filter Baseline 4 with foot, with terrain factor 
 
+A1KFCombineLOWithFootTerrain kf;  // Kalman filter Baseline 4 with foot, with terrain factor 
 A1KFQP kf_qp;
 
 A1SensorData data;
@@ -37,6 +27,7 @@ double curr_t;
 ros::Publisher filterd_imu_pub;
 ros::Publisher filterd_joint_pub;
 ros::Publisher filterd_pos_pub;
+ros::Publisher filterd_pos_qp_pub;
 
 bool first_sensor_received = false;
 void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msgs::JointState::ConstPtr& joint_msg) {
@@ -74,6 +65,7 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         data.input_dt(dt);
         // init the filter using optitrack data, not here
         kf_qp.init_filter(data);
+        kf.init_filter(data);
     } else if ( !kf_qp.is_inited()) {
         // filter may not be inited even after the callback is called multiple times
         dt = t- curr_t;
@@ -84,6 +76,7 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         
         data.input_dt(dt);
         kf_qp.update_filter(data);
+        kf.update_filter(data);
         curr_t = t;
     }
     // debug print filtered data
@@ -119,7 +112,7 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
     filterd_imu_pub.publish(filterd_imu_msg);
     filterd_joint_pub.publish(filterd_joint_msg);
 
-    Eigen::Matrix<double, EKF_STATE_SIZE,1> kf_state = kf_qp.get_state();
+    Eigen::Matrix<double, EKF_STATE_SIZE,1> kf_state = kf.get_state();
     nav_msgs::Odometry filterd_pos_msg;
     filterd_pos_msg.header.stamp = ros::Time::now();
     filterd_pos_msg.pose.pose.position.x = kf_state[0];
@@ -130,6 +123,19 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
     filterd_pos_msg.twist.twist.linear.z = kf_state[5];
 
     filterd_pos_pub.publish(filterd_pos_msg);
+
+
+    Eigen::Matrix<double, EKF_STATE_SIZE,1> kf_qp_state = kf_qp.get_state();
+    nav_msgs::Odometry filterd_pos_qp_msg;
+    filterd_pos_qp_msg.header.stamp = ros::Time::now();
+    filterd_pos_qp_msg.pose.pose.position.x = kf_qp_state[0];
+    filterd_pos_qp_msg.pose.pose.position.y = kf_qp_state[1];
+    filterd_pos_qp_msg.pose.pose.position.z = kf_qp_state[2];
+    filterd_pos_qp_msg.twist.twist.linear.x = kf_qp_state[3];
+    filterd_pos_qp_msg.twist.twist.linear.y = kf_qp_state[4];
+    filterd_pos_qp_msg.twist.twist.linear.z = kf_qp_state[5];
+
+    filterd_pos_qp_pub.publish(filterd_pos_qp_msg);
 
     first_sensor_received = true;
     return;
@@ -223,6 +229,7 @@ int main(int argc, char **argv) {
     filterd_imu_pub = nh.advertise<sensor_msgs::Imu>("/a1_filterd_imu", 30);
     filterd_joint_pub = nh.advertise<sensor_msgs::JointState>("/a1_filterd_joint", 30);
     filterd_pos_pub = nh.advertise<nav_msgs::Odometry>("/a1_filterd_pos", 30);
+    filterd_pos_qp_pub = nh.advertise<nav_msgs::Odometry>("/a1_filterd_pos_qp", 30);
     // this is the smoothed velocity we get from optitrack
     filterd_opti_vel_pub = nh.advertise<nav_msgs::Odometry>("/a1_opti_filterd_vel", 30);
     

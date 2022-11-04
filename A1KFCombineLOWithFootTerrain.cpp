@@ -213,8 +213,8 @@ void A1KFCombineLOWithFootTerrain::update_filter(A1SensorData& data) {
 
     
     Eigen::VectorXd invSy = S.fullPivHouseholderQr().solve(measurement);
-    double mahalanobis_distance = measurement.transpose()*invSy;
-    if ( mahalanobis_distance< 100) {
+    // double mahalanobis_distance = measurement.transpose()*invSy;
+    // if ( mahalanobis_distance< 100) {
         Eigen::Matrix<double, EKF_STATE_SIZE,1> update =  P01*measurement_jacobian.transpose()*invSy;
 
         curr_state = x01 - update;
@@ -224,10 +224,10 @@ void A1KFCombineLOWithFootTerrain::update_filter(A1SensorData& data) {
         curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - P01*measurement_jacobian.transpose()*invSH)*P01;
 
         curr_covariance = (curr_covariance + curr_covariance.transpose()) / 2;
-    } else {
-        curr_state = x01;
-        curr_covariance = P01;
-    }
+    // } else {
+    //     curr_state = x01;
+    //     curr_covariance = P01;
+    // }
     // finally save previous control 
     prev_ctrl = curr_ctrl;
     update_mutex.unlock();
