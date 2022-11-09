@@ -100,20 +100,20 @@ void A1KFCombineLOWithFootTerrain::update_filter(A1SensorData& data) {
     for (int i = 0; i < NUM_LEG; ++i) {
         process_noise.block<3, 3>(9 + i * 3, 9 + i * 3)
                 =
-                (1 + (1 - data.plan_contacts[i]) * 1e5) * noise_process_foot * data.dt * eye3;  // foot position transition
+                (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_process_foot * data.dt * eye3;  // foot position transition
 
         measure_noise.block<3, 3>(i * OBS_PER_LEG, i * OBS_PER_LEG)
                 =  noise_measure_fk * eye3;     // fk estimation
 
         measure_noise(i * OBS_PER_LEG + 3, i * OBS_PER_LEG + 3)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * noise_measure_vel;      // vel estimation
+                = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_vel;      // vel estimation
         measure_noise(i * OBS_PER_LEG + 4, i * OBS_PER_LEG + 4)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * noise_measure_vel;      // vel estimation
+                = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_vel;      // vel estimation
         measure_noise(i * OBS_PER_LEG + 5, i * OBS_PER_LEG + 5)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * noise_measure_vel;      // vel estimation
+                = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_vel;      // vel estimation
 
         measure_noise(i * OBS_PER_LEG + 6, i * OBS_PER_LEG + 6)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * noise_measure_height;      // height
+                = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_height;      // height
     }
 
     P01 = process_jacobian*curr_covariance*process_jacobian.transpose() + process_noise;
