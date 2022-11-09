@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
     ros::NodeHandle nh;
 
     /* subscribers */
-    // ros::Subscriber opti_sub = nh.subscribe("/mocap_node/Robot_1/pose", 30, opti_callback);
+    ros::Subscriber opti_sub = nh.subscribe("/mocap_node/Robot_1/pose", 30, opti_callback);
 
     message_filters::Subscriber<sensor_msgs::Imu> imu_sub;
     message_filters::Subscriber<sensor_msgs::JointState> joint_state_sub;

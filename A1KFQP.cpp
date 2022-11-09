@@ -144,9 +144,9 @@ void A1KFQP::update_filter(A1SensorData& data) {
     
     OsqpEigen::Solver solver;
     solver.settings()->setVerbosity(false);
-    solver.settings()->setAbsoluteTolerance(1e-6);
-    solver.settings()->setRelativeTolerance(1e-6);
-    solver.settings()->setWarmStart(true);
+    solver.settings()->setAbsoluteTolerance(1e-12);
+    solver.settings()->setRelativeTolerance(1e-12);
+    solver.settings()->setWarmStart(false);
 
     solver.data()->setNumberOfVariables(EKF_STATE_SIZE);
     solver.data()->setNumberOfConstraints(EKF_STATE_SIZE);

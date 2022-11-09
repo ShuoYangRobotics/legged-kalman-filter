@@ -8,6 +8,7 @@ find_package(gram_savitzky_golay REQUIRED)
 # add pinocchio 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(pinocchio REQUIRED pinocchio)
+find_package(Boost REQUIRED)
 
 include_directories(
   ${CASADI_INCLUDE_DIR}
@@ -66,7 +67,18 @@ add_executable(test_pinocchio_unitree test/test_pinocchio_unitree.cpp)
 target_link_libraries(test_pinocchio_unitree
         ${catkin_LIBRARIES}
         ${pinocchio_LIBRARIES}
+        casadi
 )
+
+
+add_executable(test_pinocchio_dynamics test/test_pinocchio_dynamics.cpp)
+target_link_libraries(test_pinocchio_dynamics
+        ${catkin_LIBRARIES}
+        ${pinocchio_LIBRARIES}
+        casadi
+        ${Boost_LIBRARIES}
+)
+
 # ocs2 is found by outer cmake list file
 target_compile_options(test_pinocchio_unitree PUBLIC ${OCS2_CXX_FLAGS})   
 
