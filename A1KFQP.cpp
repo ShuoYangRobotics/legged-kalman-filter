@@ -138,7 +138,7 @@ void A1KFQP::update_filter(A1SensorData& data) {
     measure(x01, data.ang_vel, data.joint_pos, data.joint_vel);
 
     hessian_ = P01.inverse() + measurement_jacobian.transpose()*measure_noise.inverse()*measurement_jacobian;
-    gradient_ = 2*measurement.transpose()*measure_noise.inverse()*measurement_jacobian; // notice the sign here 
+    gradient_ = measurement.transpose()*measure_noise.inverse()*measurement_jacobian; // notice the sign here 
 
     sparse_hessian_ = hessian_.sparseView();    
     
