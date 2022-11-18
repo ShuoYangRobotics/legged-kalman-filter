@@ -123,95 +123,9 @@ void A1KFCombineLOWithFootTerrain::update_filter(A1SensorData& data) {
 
     S = measurement_jacobian*P01*measurement_jacobian.transpose() + measure_noise;
 
-    // // outliner rejection
-    // bool pos_mask[NUM_LEG]; 
-    // bool vel_mask[NUM_LEG]; 
-    // int total_pos = 0, total_vel  = 0;
-    // double mahalanobis_distance = 0;
-    // for (int i = 0; i < NUM_LEG; ++i) {
-    //     // position
-    //     Eigen::Matrix3d subS = S.block<3,3>(i*OBS_PER_LEG,i*OBS_PER_LEG);
-    //     Eigen::Vector3d suby = measurement.segment<3>(i*OBS_PER_LEG);
-    //     Eigen::Vector3d invSy = subS.fullPivHouseholderQr().solve(suby);
-    //     mahalanobis_distance = suby.transpose()*invSy;
-    //     if (mahalanobis_distance < 11.5) {
-    //         pos_mask[i] = true;
-    //         total_pos++;
-    //     } else {
-    //         pos_mask[i] = false;
-    //     }
 
-    //     // velocity
-
-    //     // modify measurement noise according to contact
-    //     // Eigen::Vector3d vel_meas = measurement.segment<3>(i*6+3);
-    //     // measurement.segment<3>(i*6+3) = (1 - data.plan_contacts[i]) * Eigen::Vector3d::Zero() + data.plan_contacts[i] * vel_meas;
-
-    //     subS = S.block<3,3>(i*OBS_PER_LEG+3,i*OBS_PER_LEG+3);
-    //     suby = measurement.segment<3>(i*OBS_PER_LEG+3);
-    //     invSy = subS.fullPivHouseholderQr().solve(suby);
-    //     mahalanobis_distance = suby.transpose()*invSy;
-    //     if (mahalanobis_distance < 11.5) {
-    //         vel_mask[i] = true;
-    //         total_vel++;
-    //         estimated_contact[i] = 1.0;
-    //     } else {
-    //         vel_mask[i] = false;
-    //         estimated_contact[i] = 0.0;
-    //     }
-    // }
-
-    // // if (total_pos+total_vel >= 1) {
-    //     // have to use MatrixXd and VectorXd to store the masked measurement
-    //     Eigen::VectorXd masked_measurement(total_pos*3+total_vel*3+NUM_LEG);
-    //     masked_measurement.setZero();
-    //     // Eigen::MatrixXd masked_S(total_pos*3+total_vel*3, total_pos*3+total_vel*3);
-    //     // masked_S.setZero();
-    //     Eigen::MatrixXd masked_jacobian(total_pos*3+total_vel*3+NUM_LEG, EKF_STATE_SIZE);
-    //     Eigen::MatrixXd masked_measure_noise(total_pos*3+total_vel*3+NUM_LEG, total_pos*3+total_vel*3+NUM_LEG);
-    //     masked_measure_noise.setZero();
-    //     masked_jacobian.setZero();
-    //     int idx_pos = 0, idx_vel  = 0;
-    //     for (int i = 0; i < NUM_LEG; ++i) {
-    //         if (pos_mask[i] == true) {
-    //             masked_measurement.segment<3>(idx_pos*3) = measurement.segment<3>(i*OBS_PER_LEG);
-    //             // masked_S.block<3,3>(idx_pos*3, idx_pos*3) = S.block<3,3>(i*6, i*6);
-    //             masked_measure_noise.block<3,3>(idx_pos*3, idx_pos*3) = measure_noise.block<3,3>(i*OBS_PER_LEG, i*OBS_PER_LEG);
-    //             masked_jacobian.block<3,EKF_STATE_SIZE>(idx_pos*3, 0) = measurement_jacobian.block<3,EKF_STATE_SIZE>(i*OBS_PER_LEG, 0);
-    //             idx_pos++;
-    //         }
-
-    //         if (vel_mask[i] == true) {
-    //             masked_measurement.segment<3>(total_pos*3+idx_vel*3) = measurement.segment<3>(i*OBS_PER_LEG+3);
-    //             // masked_S.block<3,3>(total_pos*3+idx_vel*3, total_pos*3+idx_vel*3) = S.block<3,3>(i*6+3, i*6+3);
-    //             masked_measure_noise.block<3,3>(total_pos*3+idx_vel*3, total_pos*3+idx_vel*3) = measure_noise.block<3,3>(i*OBS_PER_LEG+3, i*OBS_PER_LEG+3);
-    //             masked_jacobian.block<3,EKF_STATE_SIZE>(total_pos*3+idx_vel*3, 0) = measurement_jacobian.block<3,EKF_STATE_SIZE>(i*OBS_PER_LEG+3, 0);
-    //             idx_vel++;
-    //         }
-    //         // foot height
-    //         masked_measurement(total_pos*3+idx_vel*3+i) = measurement(i*OBS_PER_LEG+6);
-    //         masked_measure_noise(total_pos*3+idx_vel*3+i, total_pos*3+idx_vel*3+i) = measure_noise(i*OBS_PER_LEG+6, i*OBS_PER_LEG+6);
-    //         masked_jacobian.block<1,EKF_STATE_SIZE>(total_pos*3+idx_vel*3+i, 0) = measurement_jacobian.block<1,EKF_STATE_SIZE>(i*OBS_PER_LEG+6, 0);
-
-    //     }
-    //     Eigen::MatrixXd masked_S = masked_jacobian*P01*masked_jacobian.transpose() + masked_measure_noise;
-    //     Eigen::VectorXd masked_invSy = masked_S.fullPivHouseholderQr().solve(masked_measurement);
-
-    //     Eigen::Matrix<double, EKF_STATE_SIZE,1> update =  P01*masked_jacobian.transpose()*masked_invSy;
-    //     curr_state = x01 - update;
-
-    //     Eigen::MatrixXd  invSH = masked_S.fullPivHouseholderQr().solve(masked_jacobian);
-
-    //     curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - P01*masked_jacobian.transpose()*invSH)*P01;
-
-    //     curr_covariance = (curr_covariance + curr_covariance.transpose()) / 2;
-    // } else {
-    //     //update the state and covariance directly without using measurements
-    //     curr_state = x01;
-    //     curr_covariance = P01;
-    // }
-
-    
+    Eigen::Matrix<double, EKF_STATE_SIZE,OBSERVATION_SIZE> P_xy = P01*measurement_jacobian.transpose();
+    Eigen::Matrix<double, EKF_STATE_SIZE,OBSERVATION_SIZE> K = P_xy*S.inverse();
     Eigen::VectorXd invSy = S.fullPivHouseholderQr().solve(measurement);
     // double mahalanobis_distance = measurement.transpose()*invSy;
     // if ( mahalanobis_distance< 100) {
@@ -219,11 +133,13 @@ void A1KFCombineLOWithFootTerrain::update_filter(A1SensorData& data) {
 
         curr_state = x01 - update;
 
-        Eigen::MatrixXd  invSH = S.fullPivHouseholderQr().solve(measurement_jacobian);
+        // Eigen::MatrixXd  invSH = S.fullPivHouseholderQr().solve(measurement_jacobian);
 
-        curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - P01*measurement_jacobian.transpose()*invSH)*P01;
+        Eigen::MatrixXd tmp = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - K*measurement_jacobian;
+        curr_covariance = tmp * P01* tmp.transpose() + K*measure_noise*K.transpose();
+        // curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - P01*measurement_jacobian.transpose()*invSH)*P01;
 
-        curr_covariance = (curr_covariance + curr_covariance.transpose()) / 2;
+        // curr_covariance = (curr_covariance + curr_covariance.transpose()) / 2;
     // } else {
     //     curr_state = x01;
     //     curr_covariance = P01;

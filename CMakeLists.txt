@@ -1,4 +1,6 @@
 # search for casadi in the environment
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_BUILD_TYPE "Debug")
 find_package(casadi REQUIRED) 
 
 # Find the savitzky golay filter package and all its dependencies 
@@ -14,6 +16,7 @@ include_directories(
   ${CASADI_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
   ../../include
+  mhe_utils
 )
 
 # libraries
@@ -88,3 +91,12 @@ target_compile_options(test_pinocchio_unitree PUBLIC ${OCS2_CXX_FLAGS})
 #        ../utils/Utils.cpp
 #        ../utils/Utils.h
 #)        
+
+
+
+add_executable(test_mhe test/test_mhe.cpp)
+target_link_libraries(test_mhe
+        ${catkin_LIBRARIES}
+        ${pinocchio_LIBRARIES}
+        casadi
+)

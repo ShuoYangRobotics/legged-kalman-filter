@@ -208,6 +208,38 @@ int main(int argc, char **argv) {
     ros::init(argc, argv, "run_bag");
     ros::NodeHandle nh;
 
+    // set KF parameter 
+    kf.set_noise_params(
+        0.1,
+        0.001,
+        0.001,
+        0.001,
+        0.001,
+        0.000001,
+        0.00001,
+        0.0001,
+        0.1,
+        0.001,
+        0.1,
+        9.9,
+        0.1
+    );
+    kf_qp.set_noise_params(
+        0.1,
+        0.001,
+        0.001,
+        0.001,
+        0.001,
+        0.000001,
+        0.00001,
+        0.0001,
+        0.1,
+        0.001,
+        0.1,
+        9.9,
+        0.1
+    );
+
     /* subscribers */
     ros::Subscriber opti_sub = nh.subscribe("/mocap_node/Robot_1/pose", 30, opti_callback);
 

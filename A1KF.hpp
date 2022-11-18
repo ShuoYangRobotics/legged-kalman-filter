@@ -19,8 +19,8 @@ class A1SensorData {
     public:
         A1SensorData() {
             for (size_t i = 0; i < 3; ++i) {
-                acc_filter[i] = MovingWindowFilter(5);
-                ang_vel_filter[i] = MovingWindowFilter(5);
+                acc_filter[i] = MovingWindowFilter(40);
+                ang_vel_filter[i] = MovingWindowFilter(40);
                 opti_euler_filter[i] = MovingWindowFilter(5); 
 
                 opti_pos_filter[i] = MovingWindowFilter(15);
@@ -52,18 +52,18 @@ class A1SensorData {
         void input_leg(Eigen::Matrix<double, NUM_DOF, 1> joint_pos, Eigen::Matrix<double, NUM_DOF, 1> joint_vel, Eigen::Matrix<double, NUM_LEG, 1> contact) {
             for (size_t i = 0; i < NUM_DOF; ++i) {
                 this->joint_pos[i] = joint_pos_filter[i].CalculateAverage(joint_pos[i]);
-                this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
+                // this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
 
-                // if (sgolay_values[i].size() < sgolay_frame) {
-                //     this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
-                //     sgolay_values[i].push_back(joint_pos[i]);
-                //     joint_sglolay_initialized = false;
-                // } else {
-                //     sgolay_values[i].pop_front();
-                //     sgolay_values[i].push_back(joint_pos[i]);
-                //     this->joint_vel[i] = joint_vel_filter_sgolay[i].filter(sgolay_values[i])/average_dt;
-                //     joint_sglolay_initialized = true;
-                // }
+                if (sgolay_values[i].size() < sgolay_frame) {
+                    this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
+                    sgolay_values[i].push_back(this->joint_pos[i]);
+                    joint_sglolay_initialized = false;
+                } else {
+                    sgolay_values[i].pop_front();
+                    sgolay_values[i].push_back(this->joint_pos[i]);
+                    this->joint_vel[i] = joint_vel_filter_sgolay[i].filter(sgolay_values[i])/average_dt;
+                    joint_sglolay_initialized = true;
+                }
             }
             this-> plan_contacts = contact;
         }
