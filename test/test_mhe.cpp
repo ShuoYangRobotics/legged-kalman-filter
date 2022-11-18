@@ -61,6 +61,23 @@ int main(int argc, char **argv) {
     mq.push(-0.30,  zero_vec, zero_vec);
     mq.push(0.5,  zero_vec, zero_vec);
     mq.push(0.04,  zero_vec, zero_vec);
+    mq.push(0.01,  zero_vec, zero_vec,0);
+    mq.push(0.012,  zero_vec, zero_vec,2);
+    mq.push(0.042,  zero_vec, zero_vec,3);
 
     mq.print_queue();
+
+    std::vector<MHE::Measurement*> horiz_meas = mq.getHorizon(4);
+    std::cout << horiz_meas.size() << std::endl;
+
+
+    try
+    {
+        horiz_meas = mq.getHorizon(99);
+        std::cout << horiz_meas.size() << std::endl;
+    }
+    catch (int e)
+    {
+        std::cout << "An exception occurred. Exception Nr. " << e << std::endl;
+    }
 }
