@@ -1,9 +1,13 @@
 #include <Eigen/Dense>
 #include <iostream>
-#include <casadi/casadi.hpp>
 #include <pinocchio/math/rotation.hpp>
 #include <pinocchio/spatial/se3.hpp>
+#include <pinocchio/parsers/urdf.hpp> //load urdf 
+#include <pinocchio/algorithm/joint-configuration.hpp>
+#include <pinocchio/algorithm/kinematics.hpp>                     //pinocchio::Data
 
+#include <pinocchio/autodiff/casadi.hpp> // casadi diff related
+#include <casadi/casadi.hpp>
 bool almost_equal(double a, double b, double epsilon) {
     return std::abs(a - b) < epsilon;
 }
@@ -83,41 +87,71 @@ int main(int argc, char **argv) {
     
 //     std::cout << xk_new.transpose() - xk_des.transpose()  << std::endl;
 
-    using namespace casadi;
     // play with some casad basics 
     // Variables
-    SX x = SX::sym("x");
-    SX y = SX::sym("y");
+    casadi::SX x = casadi::SX::sym("x");
+    casadi::SX y = casadi::SX::sym("y");
 
     // Simple function
-    SX z = x*x + y*y;
-    SX state = vertcat(x, y);
-    SX dz = jacobian(z, state);
+    casadi::SX z = x*x + y*y;
+    casadi::SX state = vertcat(x, y);
+    casadi::SX dz = jacobian(z, state);
     std::cout << dz;
 
     // test some rotation stuff
-
-    using namespace pinocchio;
-    SX qw = SX::sym("qw");
-    SX qx = SX::sym("qx");
-    SX qy = SX::sym("qy");
-    SX qz = SX::sym("qz");
-    Eigen::Quaternion<SX> c_q(qw, qx, qy, qz);
-    SX w0 = SX::sym("w0");
-    SX w1 = SX::sym("w1");
-    SX w2 = SX::sym("w2");
-    Eigen::Matrix<SX,3,1> w(w0, w1, w2);
+    casadi::SX qw = casadi::SX::sym("qw");
+    casadi::SX qx = casadi::SX::sym("qx");
+    casadi::SX qy = casadi::SX::sym("qy");
+    casadi::SX qz = casadi::SX::sym("qz");
+    Eigen::Quaternion<casadi::SX> c_q(qw, qx, qy, qz);
+    casadi::SX w0 = casadi::SX::sym("w0");
+    casadi::SX w1 = casadi::SX::sym("w1");
+    casadi::SX w2 = casadi::SX::sym("w2");
+    Eigen::Matrix<casadi::SX,3,1> w(w0, w1, w2);
 
     // shitty cayley map 
-    Eigen::Matrix<SX,4,1> dq_coeff; 
+    Eigen::Matrix<casadi::SX,4,1> dq_coeff; 
     dq_coeff[0] = 1;
     dq_coeff.segment(1,3) = w;
     dq_coeff = dq_coeff / (sqrt(1+w.squaredNorm()));
-    Eigen::Quaternion<SX> dq(dq_coeff);
-    Eigen::Quaternion<SX> next_q = c_q * dq;
+    Eigen::Quaternion<casadi::SX> dq(dq_coeff);
+    Eigen::Quaternion<casadi::SX> next_q = c_q * dq;
 
     std::cout << next_q.w() << std::endl;
     std::cout << w[0] << std::endl;
+
+    // load pinocchio urdf 
+    // https://gepettoweb.laas.fr/doc/stack-of-tasks/pinocchio/master/doxygen-html/md_doc_b-examples_a-model.html
+    const std::string urdf_filename = "/home/REXOperator/legged_ctrl_ws/src/legged_ctrl/urdf/a1_description/urdf/a1.urdf";
+
+    // Load the urdf model
+    pinocchio::Model model;
+    pinocchio::urdf::buildModel(urdf_filename,model);
+    std::cout << "model name: " << model.name << std::endl;
+    
+    // Create data required by the algorithms
+    pinocchio::Data data(model);
+
+    Eigen::VectorXd q = randomConfiguration(model);
+    pinocchio::forwardKinematics(model, data, q);
+
+    // https://github.com/stack-of-tasks/pinocchio/blob/master/unittest/casadi-algo-derivatives.cpp
+    typedef casadi::SX ADScalar;
+    typedef pinocchio::ModelTpl<ADScalar> ADModel;
+    typedef ADModel::Data ADData;
+    ADModel ad_model = model.cast<ADScalar>();
+    ADData ad_data(ad_model);
+
+    casadi::SX cs_q = casadi::SX::sym("q", model.nq);
+    casadi::SX cs_v = casadi::SX::sym("v", model.nv);
+
+    typedef ADModel::ConfigVectorType ConfigVectorAD;
+    ConfigVectorAD q_ad(model.nq), v_ad(model.nv);
+    q_ad = Eigen::Map<ConfigVectorAD>(static_cast< std::vector<ADScalar> >(cs_q).data(),model.nq,1);
+    v_ad = Eigen::Map<ConfigVectorAD>(static_cast< std::vector<ADScalar> >(cs_v).data(),model.nv,1);
+    pinocchio::forwardKinematics(ad_model,ad_data,q_ad,v_ad);
+
+
 
     return 0;
 }
