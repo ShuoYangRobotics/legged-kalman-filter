@@ -1,13 +1,18 @@
 #include <Eigen/Dense>
 #include <iostream>
+
 #include <pinocchio/math/rotation.hpp>
 #include <pinocchio/spatial/se3.hpp>
 #include <pinocchio/parsers/urdf.hpp> //load urdf 
 #include <pinocchio/algorithm/joint-configuration.hpp>
+#include <pinocchio/algorithm/frames.hpp>
+#include <pinocchio/algorithm/jacobian.hpp>  // getFrameJacobian
 #include <pinocchio/algorithm/kinematics.hpp>                     //pinocchio::Data
-
 #include <pinocchio/autodiff/casadi.hpp> // casadi diff related
+#include <pinocchio/algorithm/crba.hpp>       //   computeCRBA
+#include <pinocchio/algorithm/rnea.hpp>       //  nonLinearEffects
 #include <casadi/casadi.hpp>
+
 bool almost_equal(double a, double b, double epsilon) {
     return std::abs(a - b) < epsilon;
 }
@@ -133,25 +138,87 @@ int main(int argc, char **argv) {
     pinocchio::Data data(model);
 
     Eigen::VectorXd q = randomConfiguration(model);
+    pinocchio::Model::TangentVectorType v(pinocchio::Model::TangentVectorType::Random(model.nv));
     pinocchio::forwardKinematics(model, data, q);
 
     // https://github.com/stack-of-tasks/pinocchio/blob/master/unittest/casadi-algo-derivatives.cpp
+
+    // notice namespace casadi and namespace pinocchio::casadi conflict with each other 
     typedef casadi::SX ADScalar;
     typedef pinocchio::ModelTpl<ADScalar> ADModel;
     typedef ADModel::Data ADData;
     ADModel ad_model = model.cast<ADScalar>();
     ADData ad_data(ad_model);
 
-    casadi::SX cs_q = casadi::SX::sym("q", model.nq);
-    casadi::SX cs_v = casadi::SX::sym("v", model.nv);
+    casadi::SX cs_q = casadi::SX::sym("cq", model.nq);
+    casadi::SX cs_v = casadi::SX::sym("cv", model.nv);
 
     typedef ADModel::ConfigVectorType ConfigVectorAD;
     ConfigVectorAD q_ad(model.nq), v_ad(model.nv);
     q_ad = Eigen::Map<ConfigVectorAD>(static_cast< std::vector<ADScalar> >(cs_q).data(),model.nq,1);
     v_ad = Eigen::Map<ConfigVectorAD>(static_cast< std::vector<ADScalar> >(cs_v).data(),model.nv,1);
     pinocchio::forwardKinematics(ad_model,ad_data,q_ad,v_ad);
+    pinocchio::updateFramePlacements(ad_model, ad_data);
+    pinocchio::computeJointJacobians(ad_model, ad_data);
 
+    // matrix_t ad_j_, dad_j_;
+    pinocchio::crba(ad_model, ad_data, q_ad);
+    ad_data.M.triangularView<Eigen::StrictlyLower>() = ad_data.M.transpose().triangularView<Eigen::StrictlyLower>();
+    pinocchio::nonLinearEffects(ad_model, ad_data, q_ad, v_ad);
+    std::vector<casadi::SX> ad_j_; 
+    static const std::vector<std::string> foot_names = {"LF_FOOT", "RF_FOOT", "LH_FOOT", "RH_FOOT"};
+    // ad_j_ = matrix_t(3 * centroidalModelInfo_.numThreeDofContacts, centroidalModelInfo_.generalizedCoordinatesNum);
+    for (size_t i = 0; i < 4; ++i)
+    {
+        Eigen::Matrix<casadi::SX, 6, 18> jac;
+        jac.setZero(6, 18);
+        pinocchio::getFrameJacobian(ad_model, ad_data, ad_model.getBodyId(foot_names[i]), pinocchio::LOCAL_WORLD_ALIGNED, jac);
+        Eigen::Matrix<casadi::SX, 3, 18> tmp = jac.template topRows<3>();
+        casadi::SX ad_j_block(3, 18);
 
+        for (int j = 0; j < 3; j++) {
+            for (int k = 0; k < 18; k ++) {
+                ad_j_block(j,k) = tmp(j,k);
+            }
+        }
+
+        ad_j_.push_back(ad_j_block);
+    }
+    std::cout << ad_j_[0] << std::endl;
+
+    // save ad_j_ as casadi function
+    casadi::Function eval_jac_fl("eval_jac_fl",
+                                casadi::SXVector {cs_q, cs_v},
+                                casadi::SXVector {ad_j_[0]});   
+
+    // compare eval_jac_fl result with numerical result 
+    std::vector<double> q_vec((size_t)model.nq);
+    Eigen::Map<pinocchio::Model::ConfigVectorType>(q_vec.data(),model.nq,1) = q;
+    std::vector<double> v_vec((size_t)model.nv);
+    Eigen::Map<pinocchio::Model::TangentVectorType>(v_vec.data(),model.nv,1) = v;
+    casadi::DM j = eval_jac_fl(casadi::DMVector {q_vec,v_vec})[0];
+    std::cout << "casadi jac result" << std::endl;
+    std::cout << j << std::endl;
+
+    pinocchio::forwardKinematics(model,data,q,v);
+    pinocchio::updateFramePlacements(model, data);
+    pinocchio::computeJointJacobians(model, data);
+    Eigen::Matrix<double, 6, 18> jac;
+    jac.setZero(6, 18);
+    pinocchio::getFrameJacobian(model, data, model.getBodyId(foot_names[0]), pinocchio::LOCAL_WORLD_ALIGNED, jac);
+    std::cout << "numerical jac result" << std::endl;
+    std::cout << jac.template topRows<3>() << std::endl;
+
+    // pinocchio::computeJointJacobiansTimeVariation(model, data, measured_q_, measured_v_);
+    // dad_j_ = matrix_t(3 * centroidalModelInfo_.numThreeDofContacts, centroidalModelInfo_.generalizedCoordinatesNum);
+    // for (size_t i = 0; i < centroidalModelInfo_.numThreeDofContacts; ++i)
+    // {
+    //     Eigen::Matrix<scalar_t, 6, Eigen::Dynamic> jac;
+    //     jac.setZero(6, centroidalModelInfo_.generalizedCoordinatesNum);
+    //     pinocchio::getFrameJacobianTimeVariation(model, data, centroidalModelInfo_.endEffectorFrameIndices[i],
+    //                                             pinocchio::LOCAL_WORLD_ALIGNED, jac);
+    //     dad_j_.block(3 * i, 0, 3, centroidalModelInfo_.generalizedCoordinatesNum) = jac.template topRows<3>();
+    // }
 
     return 0;
 }
