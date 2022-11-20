@@ -196,9 +196,11 @@ int main(int argc, char **argv) {
     Eigen::Map<pinocchio::Model::ConfigVectorType>(q_vec.data(),model.nq,1) = q;
     std::vector<double> v_vec((size_t)model.nv);
     Eigen::Map<pinocchio::Model::TangentVectorType>(v_vec.data(),model.nv,1) = v;
-    casadi::DM j = eval_jac_fl(casadi::DMVector {q_vec,v_vec})[0];
+    std::vector<casadi::DM> res = eval_jac_fl(casadi::DMVector {q_vec,v_vec});
+    std::vector<double> j_vec = std::vector<double>(res.at(0));
+    Eigen::Matrix<double, 3, 18> nj = Eigen::Matrix<double, 3, 18>(j_vec.data());
     std::cout << "casadi jac result" << std::endl;
-    std::cout << j << std::endl;
+    std::cout << nj << std::endl;
 
     pinocchio::forwardKinematics(model,data,q,v);
     pinocchio::updateFramePlacements(model, data);
