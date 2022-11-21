@@ -1,6 +1,17 @@
 #include <Eigen/Dense>
 #include <iostream>
 
+// // for model settings
+// #include <ocs2_legged_robot/common/ModelSettings.h>
+// // PinocchioInterface
+// #include <ocs2_pinocchio_interface/PinocchioInterface.h>
+// // CentroidalModelInfo
+// #include <ocs2_centroidal_model/CentroidalModelInfo.h>
+// // createPinocchioInterface
+// #include <ocs2_centroidal_model/FactoryFunctions.h>
+// // CentroidalModelPinocchioMapping
+// #include <ocs2_centroidal_model/CentroidalModelPinocchioMapping.h>
+
 #include <pinocchio/math/rotation.hpp>
 #include <pinocchio/spatial/se3.hpp>
 #include <pinocchio/parsers/urdf.hpp> //load urdf 
@@ -130,14 +141,37 @@ int main(int argc, char **argv) {
     const std::string urdf_filename = "/home/REXOperator/legged_ctrl_ws/src/legged_ctrl/urdf/a1_description/urdf/a1.urdf";
 
     // Load the urdf model
+    // add float base joint 
+    pinocchio::JointModelComposite jointComposite(2);
+    jointComposite.addJoint(pinocchio::JointModelTranslation());
+    jointComposite.addJoint(pinocchio::JointModelSphericalZYX());
     pinocchio::Model model;
-    pinocchio::urdf::buildModel(urdf_filename,model);
+    pinocchio::urdf::buildModel(urdf_filename, jointComposite, model);
     std::cout << "model name: " << model.name << std::endl;
     
     // Create data required by the algorithms
     pinocchio::Data data(model);
 
+    // bool verbose = true;
+    // const std::string taskFile = "/home/REXOperator/legged_ctrl_ws/src/legged_ctrl/config/task.info";
+    // const std::string urdfFile = "/home/REXOperator/legged_ctrl_ws/src/legged_ctrl/urdf/a1_description/urdf/a1.urdf";
+    // const std::string referenceFile = "/home/REXOperator/legged_ctrl_ws/src/legged_ctrl/config/reference.info";
+    // ocs2::legged_robot::ModelSettings modelSettings_ = ocs2::legged_robot::loadModelSettings(taskFile, "model_settings", verbose);
+
+
+
+    // std::unique_ptr<ocs2::PinocchioInterface> pinocchioInterfacePtr_;
+    // ocs2::CentroidalModelInfo centroidalModelInfo_;
+    // // PinocchioInterface
+    // pinocchioInterfacePtr_.reset(
+    //     new ocs2::PinocchioInterface(ocs2::centroidal_model::createPinocchioInterface(urdfFile, modelSettings_.jointNames)));
+
+    // pinocchio::Model model = pinocchioInterfacePtr_->getModel();
+    // pinocchio::Data data = pinocchioInterfacePtr_->getData();
+
     Eigen::VectorXd q = randomConfiguration(model);
+    q.segment(0,6).setZero();
+    std::cout << q << std::endl;
     pinocchio::Model::TangentVectorType v(pinocchio::Model::TangentVectorType::Random(model.nv));
     pinocchio::forwardKinematics(model, data, q);
 
@@ -185,6 +219,7 @@ int main(int argc, char **argv) {
         ad_j_.push_back(ad_j_block);
     }
     std::cout << ad_j_[0] << std::endl;
+    std::cout << "model.nq " << model.nq << std::endl;
 
     // save ad_j_ as casadi function
     casadi::Function eval_jac_fl("eval_jac_fl",
@@ -202,11 +237,11 @@ int main(int argc, char **argv) {
     std::cout << "casadi jac result" << std::endl;
     std::cout << nj << std::endl;
 
-    pinocchio::forwardKinematics(model,data,q,v);
-    pinocchio::updateFramePlacements(model, data);
-    pinocchio::computeJointJacobians(model, data);
+    pinocchio::computeJointJacobians(model, data,q);
+    pinocchio::framesForwardKinematics(model, data,q);
     Eigen::Matrix<double, 6, 18> jac;
     jac.setZero(6, 18);
+    std::cout << model.getBodyId(foot_names[0]) << std::endl;
     pinocchio::getFrameJacobian(model, data, model.getBodyId(foot_names[0]), pinocchio::LOCAL_WORLD_ALIGNED, jac);
     std::cout << "numerical jac result" << std::endl;
     std::cout << jac.template topRows<3>() << std::endl;

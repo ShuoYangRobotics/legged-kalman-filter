@@ -63,6 +63,7 @@ target_link_libraries(test_run_bag
 
 add_executable(test_casadi_lib test/test_casadi_lib.cpp)
 target_link_libraries(test_casadi_lib
+        # ${catkin_LIBRARIES}
         casadi
         ${pinocchio_LIBRARIES}
 )
@@ -84,6 +85,7 @@ target_link_libraries(test_pinocchio_dynamics
 )
 
 # ocs2 is found by outer cmake list file
+# target_compile_options(test_casadi_lib PUBLIC ${OCS2_CXX_FLAGS})   
 target_compile_options(test_pinocchio_unitree PUBLIC ${OCS2_CXX_FLAGS})   
 
 # should be moved to main code base
