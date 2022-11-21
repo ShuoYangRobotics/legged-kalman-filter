@@ -22,6 +22,7 @@
 #include <pinocchio/autodiff/casadi.hpp> // casadi diff related
 #include <pinocchio/algorithm/crba.hpp>       //   computeCRBA
 #include <pinocchio/algorithm/rnea.hpp>       //  nonLinearEffects
+#include <pinocchio/algorithm/rnea-derivatives.hpp>
 #include <casadi/casadi.hpp>
 
 bool almost_equal(double a, double b, double epsilon) {
@@ -218,13 +219,14 @@ int main(int argc, char **argv) {
 
         ad_j_.push_back(ad_j_block);
     }
-    std::cout << ad_j_[0] << std::endl;
-    std::cout << "model.nq " << model.nq << std::endl;
+    // std::cout << ad_j_[0] << std::endl;
+    // std::cout << "model.nq " << model.nq << std::endl;
 
+    int foot_id = 1;
     // save ad_j_ as casadi function
     casadi::Function eval_jac_fl("eval_jac_fl",
                                 casadi::SXVector {cs_q, cs_v},
-                                casadi::SXVector {ad_j_[0]});   
+                                casadi::SXVector {ad_j_[foot_id]});   
 
     // compare eval_jac_fl result with numerical result 
     std::vector<double> q_vec((size_t)model.nq);
@@ -237,14 +239,38 @@ int main(int argc, char **argv) {
     std::cout << "casadi jac result" << std::endl;
     std::cout << nj << std::endl;
 
-    pinocchio::computeJointJacobians(model, data,q);
-    pinocchio::framesForwardKinematics(model, data,q);
     Eigen::Matrix<double, 6, 18> jac;
     jac.setZero(6, 18);
-    std::cout << model.getBodyId(foot_names[0]) << std::endl;
-    pinocchio::getFrameJacobian(model, data, model.getBodyId(foot_names[0]), pinocchio::LOCAL_WORLD_ALIGNED, jac);
+    std::cout << model.getBodyId(foot_names[foot_id]) << std::endl;
+    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
+    pinocchio::computeJointJacobians(model, data,q);
+    pinocchio::framesForwardKinematics(model, data,q);
+    pinocchio::getFrameJacobian(model, data, model.getBodyId(foot_names[foot_id]), pinocchio::LOCAL_WORLD_ALIGNED, jac);
+
+    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+    auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "compute time: " << microseconds.count() << "us" << std::endl;
+
     std::cout << "numerical jac result" << std::endl;
     std::cout << jac.template topRows<3>() << std::endl;
+
+    start = std::chrono::system_clock::now();
+    pinocchio::crba(model, data, q);
+    data.M.triangularView<Eigen::StrictlyLower>() = data.M.transpose().triangularView<Eigen::StrictlyLower>();
+    end = std::chrono::system_clock::now();
+    microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "crba compute time: " << microseconds.count() << "us" << std::endl;
+
+    start = std::chrono::system_clock::now();
+    // compute references
+    Eigen::MatrixXd dtau_dq_ref(model.nv,model.nv), dtau_dv_ref(model.nv,model.nv), dtau_da_ref(model.nv,model.nv);
+    dtau_dq_ref.setZero(); dtau_dv_ref.setZero(); dtau_da_ref.setZero();
+    
+    pinocchio::computeRNEADerivatives(model,data,q,q,q,dtau_dq_ref,dtau_dv_ref,dtau_da_ref);
+    dtau_da_ref.triangularView<Eigen::StrictlyLower>() = dtau_da_ref.transpose().triangularView<Eigen::StrictlyLower>();
+    end = std::chrono::system_clock::now();
+    microseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "computeRNEADerivatives compute time: " << microseconds.count() << "us" << std::endl;
 
     // pinocchio::computeJointJacobiansTimeVariation(model, data, measured_q_, measured_v_);
     // dad_j_ = matrix_t(3 * centroidalModelInfo_.numThreeDofContacts, centroidalModelInfo_.generalizedCoordinatesNum);

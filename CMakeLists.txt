@@ -1,6 +1,6 @@
 # search for casadi in the environment
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_BUILD_TYPE "Debug")
+# set(CMAKE_BUILD_TYPE "Debug")
 find_package(casadi REQUIRED) 
 
 # Find the savitzky golay filter package and all its dependencies 
