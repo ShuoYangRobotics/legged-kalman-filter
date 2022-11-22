@@ -33,6 +33,7 @@ class MeasureQueue {
             Eigen::Vector3d _imu_gyro) {
             Measurement* tmp = new BodyIMUMeasurement(_t, _imu_acc, _imu_gyro);
             pq_meas.push(tmp);
+            return true;
         }
 
         // LegMeasurement
@@ -41,6 +42,7 @@ class MeasureQueue {
             Eigen::Matrix<double, 12, 1> _joint_vel) {
             Measurement* tmp = new LegMeasurement(_t, _joint_pos, _joint_vel);
             pq_meas.push(tmp);
+            return true;
         }
 
         // BodyIMUMeasurement & LegMeasurement
@@ -53,6 +55,7 @@ class MeasureQueue {
             Measurement* tmp2 = new LegMeasurement(_t, _joint_pos, _joint_vel);
             pq_meas.push(tmp1);
             pq_meas.push(tmp2);
+            return true;
         }
 
         // LegMeasurement with tau
@@ -62,6 +65,7 @@ class MeasureQueue {
             Eigen::Matrix<double, 12, 1> _joint_tau) {
             Measurement* tmp = new LegMeasurement(_t, _joint_pos, _joint_vel, _joint_tau);
             pq_meas.push(tmp);
+            return true;
         }
 
         // BodyIMUMeasurement & LegMeasurement with tau
@@ -75,6 +79,7 @@ class MeasureQueue {
             Measurement* tmp2 = new LegMeasurement(_t, _joint_pos, _joint_vel, _joint_tau);
             pq_meas.push(tmp1);
             pq_meas.push(tmp2);
+            return true;
         }
 
         // FootIMUMeasurement
@@ -84,6 +89,7 @@ class MeasureQueue {
             int _id) {
             Measurement* tmp = new FootIMUMeasurement(_t, _imu_acc, _imu_gyro, _id);
             pq_meas.push(tmp);
+            return true;
         }
 
         // FootForceMeasurement
@@ -92,6 +98,7 @@ class MeasureQueue {
             int _id) {
             Measurement* tmp = new FootForceMeasurement(_t, _foot_force_xyz, _id);
             pq_meas.push(tmp);
+            return true;
         }
 
         // PoseMeasurement
@@ -100,10 +107,12 @@ class MeasureQueue {
             Eigen::Quaterniond _quat) {
             Measurement* tmp = new PoseMeasurement(_t, _pos, _quat);
             pq_meas.push(tmp);
+            return true;
         }
 
         bool pop() {
             pq_meas.pop();
+            return true;
         }
 
         // get measurement within the horizon
@@ -113,15 +122,23 @@ class MeasureQueue {
                 std::cout << "horizon cannot be longer than the pq_meas.size()" << std::endl;
                 throw 203;
             }
-            int vec_size = 0;
+            if (horizon_length < 2) {
+                // something is wrong, throw error 
+                std::cout << "horizon cannot be shorter than 2" << std::endl;
+                throw 204;
+            }
             std::vector<Measurement*> tmp_vec_meas;
             tmp_vec_meas.clear();
             pq_meas_type tmp_pq_meas = pq_meas; // copy a pq_meas_type
-            while (!tmp_pq_meas.empty()&& vec_size < horizon_length) {
+            // pop until only horizon_length elements left
+            while (tmp_pq_meas.size() > horizon_length) {
+                tmp_pq_meas.pop();
+            }
+            // then save the rest horizon_length elements to tmp_vec_meas
+            while (!tmp_pq_meas.empty()) {
                 Measurement* tmp = tmp_pq_meas.top();
                 tmp_vec_meas.push_back(tmp);
                 tmp_pq_meas.pop();
-                vec_size++;
             }
             return tmp_vec_meas;
         }
@@ -144,6 +161,15 @@ class MeasureQueue {
             }
             std::cout << std::endl;
             return vec_meas.size();
+        }
+
+        // helper function
+        int print_queue(std::vector<Measurement*> vec) {
+            for (Measurement* element : vec) {
+                std::cout << "(" << element->getTime() << "\t," << element->getType() << ") ";
+            }
+            std::cout << std::endl;
+            return vec.size();
         }
 
     private:

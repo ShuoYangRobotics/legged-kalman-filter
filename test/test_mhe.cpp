@@ -67,9 +67,11 @@ int main(int argc, char **argv) {
 
     mq.print_queue();
 
-    std::vector<MHE::Measurement*> horiz_meas = mq.getHorizon(4);
+    std::vector<MHE::Measurement*> horiz_meas = mq.getHorizon(2);
     std::cout << horiz_meas.size() << std::endl;
 
+    // help to visualize what's inside the horizon
+    mq.print_queue(horiz_meas);
 
     try
     {

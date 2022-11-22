@@ -1,6 +1,7 @@
 # search for casadi in the environment
 set(CMAKE_CXX_STANDARD 14)
 # set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
 find_package(casadi REQUIRED) 
 
 # Find the savitzky golay filter package and all its dependencies 
@@ -61,32 +62,32 @@ target_link_libraries(test_run_bag
         )
 
 
-add_executable(test_casadi_lib test/test_casadi_lib.cpp)
-target_link_libraries(test_casadi_lib
-        # ${catkin_LIBRARIES}
-        casadi
-        ${pinocchio_LIBRARIES}
-)
+# add_executable(test_casadi_lib test/test_casadi_lib.cpp)
+# target_link_libraries(test_casadi_lib
+#         # ${catkin_LIBRARIES}
+#         casadi
+#         ${pinocchio_LIBRARIES}
+# )
 
-add_executable(test_pinocchio_unitree test/test_pinocchio_unitree.cpp)
-target_link_libraries(test_pinocchio_unitree
-        ${catkin_LIBRARIES}
-        ${pinocchio_LIBRARIES}
-        casadi
-)
+# add_executable(test_pinocchio_unitree test/test_pinocchio_unitree.cpp)
+# target_link_libraries(test_pinocchio_unitree
+#         ${catkin_LIBRARIES}
+#         ${pinocchio_LIBRARIES}
+#         casadi
+# )
 
 
-add_executable(test_pinocchio_dynamics test/test_pinocchio_dynamics.cpp)
-target_link_libraries(test_pinocchio_dynamics
-        ${catkin_LIBRARIES}
-        ${pinocchio_LIBRARIES}
-        casadi
-        ${Boost_LIBRARIES}
-)
+# add_executable(test_pinocchio_dynamics test/test_pinocchio_dynamics.cpp)
+# target_link_libraries(test_pinocchio_dynamics
+#         ${catkin_LIBRARIES}
+#         ${pinocchio_LIBRARIES}
+#         casadi
+#         ${Boost_LIBRARIES}
+# )
 
 # ocs2 is found by outer cmake list file
 # target_compile_options(test_casadi_lib PUBLIC ${OCS2_CXX_FLAGS})   
-target_compile_options(test_pinocchio_unitree PUBLIC ${OCS2_CXX_FLAGS})   
+# target_compile_options(test_pinocchio_unitree PUBLIC ${OCS2_CXX_FLAGS})   
 
 # should be moved to main code base
 #add_executable(test_rotation_utils test/test_rotations.cpp
