@@ -62,12 +62,12 @@ target_link_libraries(test_run_bag
         )
 
 
-# add_executable(test_casadi_lib test/test_casadi_lib.cpp)
-# target_link_libraries(test_casadi_lib
-#         # ${catkin_LIBRARIES}
-#         casadi
-#         ${pinocchio_LIBRARIES}
-# )
+add_executable(test_casadi_lib test/test_casadi_lib.cpp)
+target_link_libraries(test_casadi_lib
+        # ${catkin_LIBRARIES}
+        casadi
+        ${pinocchio_LIBRARIES}
+)
 
 # add_executable(test_pinocchio_unitree test/test_pinocchio_unitree.cpp)
 # target_link_libraries(test_pinocchio_unitree

@@ -1,5 +1,5 @@
 /*
- * In this script we read ROS bags to do moving horizon estimation 
+ * In this script we test components in the moving horizon estimator 
  */
 // c++
 #include <fstream>
@@ -15,15 +15,15 @@
 #include "Measurement.hpp"
 #include "MeasurementQueue.hpp"
 // Define the function to be called when ctrl-c (SIGINT) is sent to process
-void signal_callback_handler(int signum) {
-   exit(signum);
-}
+// void signal_callback_handler(int signum) {
+//    exit(signum);
+// }
 
 int main(int argc, char **argv) {
     // Register signal and signal handler
-    signal(SIGINT, signal_callback_handler);
-    ros::init(argc, argv, "mhe_test");
-    ros::NodeHandle nh;
+    // signal(SIGINT, signal_callback_handler);
+    // ros::init(argc, argv, "mhe_test");
+    // ros::NodeHandle nh;
 
 
     // /* subscribers */
@@ -49,11 +49,8 @@ int main(int argc, char **argv) {
     // ros::Subscriber rr_foot_IMU_sub = nh.subscribe("/WT901_47_Data", 30, rr_foot_IMU_callback);
 
 
-    // MHE::BodyIMUMeasurement m1(0);
-    // MHE::LegMeasurement m2(0.1);
-    // MHE::FootIMUMeasurement m3(-0.3);
-    // MHE::FootForceMeasurement m4(0.2);
-
+    // test MeasureQueue, push a bunch of sensor data into MeasureQueue, the MeasureQueue will generate 
+    // measurement elements and keep them sorted 
     MHE::MeasureQueue mq;
     Eigen::Vector3d zero_vec; zero_vec.setZero();
     mq.push(0, zero_vec, zero_vec);
@@ -63,7 +60,7 @@ int main(int argc, char **argv) {
     mq.push(0.04,  zero_vec, zero_vec);
     mq.push(0.01,  zero_vec, zero_vec,0);
     mq.push(0.012,  zero_vec, zero_vec,2);
-    mq.push(0.042,  zero_vec, zero_vec,3);
+    mq.push(0.042,  zero_vec, zero_vec,3);         // sensor package timestamps may come out of order 
 
     mq.print_queue();
 
