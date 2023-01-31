@@ -22,8 +22,8 @@ A1KFCombineLOWithFoot::A1KFCombineLOWithFoot(): A1KF() {
     motor_offset[1] = -0.0838;
     motor_offset[2] = 0.0838;
     motor_offset[3] = -0.0838;
-    upper_leg_length[0] = upper_leg_length[1] = upper_leg_length[2] = upper_leg_length[3] = 0.20;
-    lower_leg_length[0] = lower_leg_length[1] = lower_leg_length[2] = lower_leg_length[3] = 0.20;
+    upper_leg_length[0] = upper_leg_length[1] = upper_leg_length[2] = upper_leg_length[3] = 0.22;
+    lower_leg_length[0] = lower_leg_length[1] = lower_leg_length[2] = lower_leg_length[3] = 0.22;
 
     for (int i = 0; i < NUM_LEG; i++) {
         Eigen::VectorXd rho_fix(5);
@@ -48,7 +48,7 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData& data, Eigen::Vector3d _ini
         curr_state.segment<3>(9+i*3) = init_foot_pos+init_pos;
     }
 
-    curr_covariance = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity()*0.001;
+    curr_covariance = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity()*inital_cov;
     // large initial position uncertainty
     // curr_covariance.block<3,3>(0,0) = Eigen::Matrix3d::Identity()* 5.0;
 
@@ -61,11 +61,11 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData& data, Eigen::Vector3d _ini
     process_noise.diagonal().segment<3>(0) = 0.1*Eigen::Vector3d::Ones();
     process_noise.diagonal().segment<3>(3) = 0.05*Eigen::Vector3d::Ones();
     process_noise.diagonal().segment<3>(6) = 1e-6*Eigen::Vector3d::Ones();
-    process_noise.diagonal().segment<12>(9) = 1e-2*Eigen::Matrix<double,12,1>::Ones();
+    process_noise.diagonal().segment<12>(9) = 1e-3*Eigen::Matrix<double,12,1>::Ones();
     process_noise.diagonal()[EKF_STATE_SIZE-1] = 0; // the time is exact
 
     // initialize measurement noise
-    measure_noise = Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE>::Identity()*0.1;
+    measure_noise = Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE>::Identity()*0.01;
 
 
     // opti track related 
@@ -73,9 +73,9 @@ void A1KFCombineLOWithFoot::init_filter(A1SensorData& data, Eigen::Vector3d _ini
     opti_jacobian.block<6,6>(0,0) = Eigen::Matrix<double,6,6>::Identity();
     opti_jacobian(6,8) = 1.0; 
     opti_noise.setZero();
-    opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*0.001; //opti_pos
-    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*999.0; // opti_vel
-    opti_noise.block<1,1>(6,6) = Eigen::Matrix<double,1,1>::Identity()*0.01; // opti yaw 
+    opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*noise_opti_pos; //opti_pos
+    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*noise_opti_vel; // opti_vel
+    opti_noise.block<1,1>(6,6) = Eigen::Matrix<double,1,1>::Identity()*noise_opti_yaw; // opti yaw 
 }
 
 
@@ -90,27 +90,28 @@ void A1KFCombineLOWithFoot::update_filter(A1SensorData& data) {
     process(curr_state, prev_ctrl, curr_ctrl, data.dt);
 
 
-    process_noise.diagonal().segment<2>(0) = 0.001*data.dt/20.0*Eigen::Vector2d::Ones();           // pos x y
-    process_noise.diagonal()(2) = 0.001* data.dt / 20.0;                                             // pos z
-    process_noise.diagonal().segment<2>(3) = 0.001 * data.dt * 9.8 / 20.0*Eigen::Vector2d::Ones();  // vel x y
-    process_noise.diagonal()(5) = 0.001 * data.dt * 9.8 / 20.0;                                       // vel z
-    process_noise.diagonal().segment<3>(6) = 1e-6*Eigen::Vector3d::Ones();
+    process_noise.diagonal().segment<2>(0) = noise_process_pos_xy * data.dt/20.0*Eigen::Vector2d::Ones();           // pos x y
+    process_noise.diagonal()(2) = noise_process_pos_z * data.dt / 20.0;                                             // pos z
+    process_noise.diagonal().segment<2>(3) = noise_process_vel_xy * data.dt * 9.8 / 20.0*Eigen::Vector2d::Ones();  // vel x y
+    process_noise.diagonal()(5) = noise_process_vel_z * data.dt * 9.8 / 20.0;                                       // vel z
+    process_noise.diagonal().segment<3>(6) = noise_process_rot*Eigen::Vector3d::Ones();
 
     // adjust noise according to contact 
     for (int i = 0; i < NUM_LEG; ++i) {
         process_noise.block<3, 3>(9 + i * 3, 9 + i * 3)
                 =
-                (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.0001 * data.dt * eye3;  // foot position transition
+                (1 + (1 - data.plan_contacts[i]) * 1e5) * noise_process_foot * data.dt * eye3;  // foot position transition
 
-        measure_noise.block<3, 3>(i * 6, i * 6)
-                =  0.01 * eye3;     // fk estimation
+        measure_noise.block<3, 3>(i * OBS_PER_LEG, i * OBS_PER_LEG)
+                =  noise_measure_fk * eye3;     // fk estimation
 
-        measure_noise(i * 6 + 3, i * 6 + 3)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 2 ;      // vel estimation
-        measure_noise(i * 6 + 4, i * 6 + 4)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 2 ;      // vel estimation
-        measure_noise(i * 6 + 5, i * 6 + 5)
-                = (1 + (1 - data.plan_contacts[i]) * 1e5) * 0.1 ;      // vel estimation
+        measure_noise(i * OBS_PER_LEG + 3, i * OBS_PER_LEG + 3)
+                = (1 + (1 - data.plan_contacts[i]) * 1e5) * noise_measure_vel;      // vel estimation
+        measure_noise(i * OBS_PER_LEG + 4, i * OBS_PER_LEG + 4)
+                = (1 + (1 - data.plan_contacts[i]) * 1e5) * noise_measure_vel;      // vel estimation
+        measure_noise(i * OBS_PER_LEG + 5, i * OBS_PER_LEG + 5)
+                = (1 + (1 - data.plan_contacts[i]) * 1e5) * noise_measure_vel;      // vel estimation
+
     }
 
     P01 = process_jacobian*curr_covariance*process_jacobian.transpose() + process_noise;
@@ -249,6 +250,39 @@ void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData& data) {
         curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - curr_covariance*opti_jacobian.transpose()*invSH)*curr_covariance;  
     }
     update_mutex.unlock();
+}
+
+void A1KFCombineLOWithFoot::set_noise_params(double _inital_cov,
+                        double _noise_process_pos_xy,
+                        double _noise_process_pos_z,
+                        double _noise_process_vel_xy,
+                        double _noise_process_vel_z,
+                        double _noise_process_rot,
+                        double _noise_process_foot,
+                        double _noise_measure_fk,
+                        double _noise_measure_vel,
+                        double _noise_measure_height,
+                        double _noise_opti_pos,
+                        double _noise_opti_vel,
+                        double _noise_opti_yaw) {
+
+    inital_cov = _inital_cov;
+    noise_process_pos_xy = _noise_process_pos_xy;
+    noise_process_pos_z = _noise_process_pos_z;
+    noise_process_vel_xy = _noise_process_vel_xy;
+    noise_process_vel_z = _noise_process_vel_z;
+    noise_process_rot = _noise_process_rot;
+    noise_process_foot = _noise_process_foot;
+
+    noise_measure_fk = _noise_measure_fk;
+    noise_measure_vel = _noise_measure_vel;
+    noise_measure_height = _noise_measure_height;
+
+    noise_opti_pos = _noise_opti_pos;
+    noise_opti_vel = _noise_opti_vel;
+    noise_opti_yaw = _noise_opti_yaw;          
+
+    return;              
 }
 
 // private 

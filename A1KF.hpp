@@ -85,10 +85,10 @@ class A1SensorData {
         void input_opti_pos(Eigen::Matrix<double, 3, 1> _opti_pos) {
             data_lock->lock();
             if (init_opti_pos_received == false) {
-                init_opti_pos = _opti_pos;
+                init_opti_pos.setZero();
                 init_opti_pos_received = true;
             }
-            Eigen::Matrix<double, 3, 1> shifted_pos = _opti_pos - init_opti_pos;
+            Eigen::Matrix<double, 3, 1> shifted_pos = _opti_pos;
             for (size_t i = 0; i < 3; i++) {
                 this->opti_pos[i] = opti_pos_filter[i].CalculateAverage(shifted_pos[i]);
                 
