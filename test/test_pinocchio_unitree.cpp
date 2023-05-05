@@ -30,9 +30,9 @@ int main(int argc, char ** argv)
 {
     bool verbose = true;
   
-    const std::string taskFile = "/home/REXOperator/legged_ctrl_ws/src/legged_ctrl/config/task.info";
-    const std::string urdfFile = "/home/REXOperator/legged_ctrl_ws/src/legged_ctrl/urdf/a1_description/urdf/a1.urdf";
-    const std::string referenceFile = "/home/REXOperator/legged_ctrl_ws/src/legged_ctrl/config/reference.info";
+    const std::string taskFile = "/home/REXOperator/legged_mpc_ctrl_ws/src/legged_ctrl/config/task.info";
+    const std::string urdfFile = "/home/REXOperator/legged_mpc_ctrl_ws/src/legged_ctrl/urdf/a1_description/urdf/a1.urdf";
+    const std::string referenceFile = "/home/REXOperator/legged_mpc_ctrl_ws/src/legged_ctrl/config/reference.info";
     ModelSettings modelSettings_ = loadModelSettings(taskFile, "model_settings", verbose);
 
 

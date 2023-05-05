@@ -6,8 +6,8 @@ find_package(gram_savitzky_golay REQUIRED)
 
 
 # add pinocchio 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(pinocchio REQUIRED pinocchio)
+# find_package(PkgConfig REQUIRED)
+# pkg_check_modules(pinocchio REQUIRED pinocchio)
 
 include_directories(
   ${CASADI_INCLUDE_DIR}
@@ -24,6 +24,10 @@ add_library(kf_lib
         A1KFCombineLOWithFootTerrain.cpp
         ../../utils/A1Kinematics.cpp
 )
+target_link_libraries(kf_lib
+        ${catkin_LIBRARIES}
+        Eigen3::Eigen
+)
 
 # compile casadi_lib
 execute_process(
@@ -34,27 +38,27 @@ execute_process(
 
 
 # executables
-add_executable(test_run_bag test/run_bag.cpp)
-target_link_libraries(test_run_bag
-        kf_lib
-        ${catkin_LIBRARIES}
-        casadi
-        gram_savitzky_golay::gram_savitzky_golay
-        )
+# add_executable(test_run_bag test/run_bag.cpp)
+# target_link_libraries(test_run_bag
+#         kf_lib
+#         ${catkin_LIBRARIES}
+#         casadi
+#         gram_savitzky_golay::gram_savitzky_golay
+#         )
 
 
-add_executable(test_casadi_lib test/test_casadi_lib.cpp)
-target_link_libraries(test_casadi_lib
-        casadi
-)
+# add_executable(test_casadi_lib test/test_casadi_lib.cpp)
+# target_link_libraries(test_casadi_lib
+#         casadi
+# )
 
-add_executable(test_pinocchio_unitree test/test_pinocchio_unitree.cpp)
-target_link_libraries(test_pinocchio_unitree
-        ${catkin_LIBRARIES}
-        ${pinocchio_LIBRARIES}
-)
+# add_executable(test_pinocchio_unitree test/test_pinocchio_unitree.cpp)
+# target_link_libraries(test_pinocchio_unitree
+#         ${catkin_LIBRARIES}
+#         ${pinocchio_LIBRARIES}
+# )
 # ocs2 is found by outer cmake list file
-target_compile_options(test_pinocchio_unitree PUBLIC ${OCS2_CXX_FLAGS})   
+# target_compile_options(test_pinocchio_unitree PUBLIC ${OCS2_CXX_FLAGS})   
 
 # should be moved to main code base
 #add_executable(test_rotation_utils test/test_rotations.cpp
