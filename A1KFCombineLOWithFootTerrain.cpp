@@ -57,7 +57,7 @@ void A1KFCombineLOWithFootTerrain::init_filter(A1SensorData& data, Eigen::Vector
     prev_ctrl << data.ang_vel, data.acc, data.dt;
 
     // initialize noise matrices
-    process_noise = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity()*0.01;
+    process_noise = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() * 0.01;
     process_noise.diagonal().segment<3>(0) = 0.1*Eigen::Vector3d::Ones();
     process_noise.diagonal().segment<3>(3) = 0.05*Eigen::Vector3d::Ones();
     process_noise.diagonal().segment<3>(6) = 1e-6*Eigen::Vector3d::Ones();
@@ -65,17 +65,20 @@ void A1KFCombineLOWithFootTerrain::init_filter(A1SensorData& data, Eigen::Vector
     process_noise.diagonal()[EKF_STATE_SIZE-1] = 0; // the time is exact
 
     // initialize measurement noise
-    measure_noise = Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE>::Identity()*0.01;
+    measure_noise = Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE>::Identity() * 0.01;
 
-
-    // opti track related 
     opti_jacobian.setZero();
-    opti_jacobian.block<6,6>(0,0) = Eigen::Matrix<double,6,6>::Identity();
-    opti_jacobian(6,8) = 1.0; 
+    // opti_jacobian.block<6,6>(0,0) = Eigen::Matrix<double,6,6>::Identity();
+    // opti_jacobian(6,8) = 1.0;
+    opti_jacobian.block<9,9>(0,0) = Eigen::Matrix<double,9,9>::Identity();
+
     opti_noise.setZero();
-    opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity()*noise_opti_pos; //opti_pos
-    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity()*noise_opti_vel; // opti_vel
-    opti_noise.block<1,1>(6,6) = Eigen::Matrix<double,1,1>::Identity()*noise_opti_yaw; // opti yaw 
+    opti_noise.block<3,3>(0,0) = Eigen::Matrix<double,3,3>::Identity() * noise_opti_pos;   // opti_pos
+    opti_noise.block<3,3>(3,3) = Eigen::Matrix<double,3,3>::Identity() * noise_opti_vel;   // opti_vel
+
+    opti_noise.block<1,1>(6,6) = Eigen::Matrix<double,1,1>::Identity() * noise_opti_roll;  // opti roll
+    opti_noise.block<1,1>(7,7) = Eigen::Matrix<double,1,1>::Identity() * noise_opti_pitch; // opti pitch
+    opti_noise.block<1,1>(8,8) = Eigen::Matrix<double,1,1>::Identity() * noise_opti_yaw;   // opti yaw
 }
 
 
@@ -89,129 +92,29 @@ void A1KFCombineLOWithFootTerrain::update_filter(A1SensorData& data) {
     // process updates x01 and calculates process_jacobian
     process(curr_state, prev_ctrl, curr_ctrl, data.dt);
 
+    process_noise.diagonal().segment<2>(0) = noise_process_pos_xy * data.dt/20.0*Eigen::Vector2d::Ones();         // pos x y
+    process_noise.diagonal()(2) = noise_process_pos_z * data.dt / 20.0;                                           // pos z
+    process_noise.diagonal().segment<2>(3) = noise_process_vel_xy * data.dt * 9.8 / 20.0*Eigen::Vector2d::Ones(); // vel x y
+    process_noise.diagonal()(5) = noise_process_vel_z * data.dt * 9.8 / 20.0;                                     // vel z
+    process_noise.diagonal().segment<3>(6) = noise_process_rot * Eigen::Vector3d::Ones();
 
-    process_noise.diagonal().segment<2>(0) = noise_process_pos_xy * data.dt/20.0*Eigen::Vector2d::Ones();           // pos x y
-    process_noise.diagonal()(2) = noise_process_pos_z * data.dt / 20.0;                                             // pos z
-    process_noise.diagonal().segment<2>(3) = noise_process_vel_xy * data.dt * 9.8 / 20.0*Eigen::Vector2d::Ones();  // vel x y
-    process_noise.diagonal()(5) = noise_process_vel_z * data.dt * 9.8 / 20.0;                                       // vel z
-    process_noise.diagonal().segment<3>(6) = noise_process_rot*Eigen::Vector3d::Ones();
-
-    // adjust noise according to contact 
+    // adjust noise according to contact
     for (int i = 0; i < NUM_LEG; ++i) {
-        process_noise.block<3, 3>(9 + i * 3, 9 + i * 3)
-                =
-                (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_process_foot * data.dt * eye3;  // foot position transition
-
-        measure_noise.block<3, 3>(i * OBS_PER_LEG, i * OBS_PER_LEG)
-                =  noise_measure_fk * eye3;     // fk estimation
-
-        measure_noise(i * OBS_PER_LEG + 3, i * OBS_PER_LEG + 3)
-                = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_vel;      // vel estimation
-        measure_noise(i * OBS_PER_LEG + 4, i * OBS_PER_LEG + 4)
-                = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_vel;      // vel estimation
-        measure_noise(i * OBS_PER_LEG + 5, i * OBS_PER_LEG + 5)
-                = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_vel;      // vel estimation
-
-        measure_noise(i * OBS_PER_LEG + 6, i * OBS_PER_LEG + 6)
-                = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_height;      // height
+        process_noise.block<3, 3>(9 + i * 3, 9 + i * 3) = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_process_foot * data.dt * eye3; // foot position transition
+        measure_noise.block<3, 3>(i * OBS_PER_LEG, i * OBS_PER_LEG) = noise_measure_fk * eye3; // fk estimation
+        measure_noise(i * OBS_PER_LEG + 3, i * OBS_PER_LEG + 3) = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_vel; // vel estimation
+        measure_noise(i * OBS_PER_LEG + 4, i * OBS_PER_LEG + 4) = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_vel; // vel estimation
+        measure_noise(i * OBS_PER_LEG + 5, i * OBS_PER_LEG + 5) = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_vel; // vel estimation
+        measure_noise(i * OBS_PER_LEG + 6, i * OBS_PER_LEG + 6) = (1 + (1 - data.plan_contacts[i]) * 1e3) * noise_measure_height; // height
     }
 
-    P01 = process_jacobian*curr_covariance*process_jacobian.transpose() + process_noise;
+    P01 = process_jacobian * curr_covariance * process_jacobian.transpose() + process_noise;
 
     // measurement updates
     measure(x01, data.ang_vel, data.joint_pos, data.joint_vel);
 
-    S = measurement_jacobian*P01*measurement_jacobian.transpose() + measure_noise;
-
-    // // outliner rejection
-    // bool pos_mask[NUM_LEG]; 
-    // bool vel_mask[NUM_LEG]; 
-    // int total_pos = 0, total_vel  = 0;
-    // double mahalanobis_distance = 0;
-    // for (int i = 0; i < NUM_LEG; ++i) {
-    //     // position
-    //     Eigen::Matrix3d subS = S.block<3,3>(i*OBS_PER_LEG,i*OBS_PER_LEG);
-    //     Eigen::Vector3d suby = measurement.segment<3>(i*OBS_PER_LEG);
-    //     Eigen::Vector3d invSy = subS.fullPivHouseholderQr().solve(suby);
-    //     mahalanobis_distance = suby.transpose()*invSy;
-    //     if (mahalanobis_distance < 11.5) {
-    //         pos_mask[i] = true;
-    //         total_pos++;
-    //     } else {
-    //         pos_mask[i] = false;
-    //     }
-
-    //     // velocity
-
-    //     // modify measurement noise according to contact
-    //     // Eigen::Vector3d vel_meas = measurement.segment<3>(i*6+3);
-    //     // measurement.segment<3>(i*6+3) = (1 - data.plan_contacts[i]) * Eigen::Vector3d::Zero() + data.plan_contacts[i] * vel_meas;
-
-    //     subS = S.block<3,3>(i*OBS_PER_LEG+3,i*OBS_PER_LEG+3);
-    //     suby = measurement.segment<3>(i*OBS_PER_LEG+3);
-    //     invSy = subS.fullPivHouseholderQr().solve(suby);
-    //     mahalanobis_distance = suby.transpose()*invSy;
-    //     if (mahalanobis_distance < 11.5) {
-    //         vel_mask[i] = true;
-    //         total_vel++;
-    //         estimated_contact[i] = 1.0;
-    //     } else {
-    //         vel_mask[i] = false;
-    //         estimated_contact[i] = 0.0;
-    //     }
-    // }
-
-    // // if (total_pos+total_vel >= 1) {
-    //     // have to use MatrixXd and VectorXd to store the masked measurement
-    //     Eigen::VectorXd masked_measurement(total_pos*3+total_vel*3+NUM_LEG);
-    //     masked_measurement.setZero();
-    //     // Eigen::MatrixXd masked_S(total_pos*3+total_vel*3, total_pos*3+total_vel*3);
-    //     // masked_S.setZero();
-    //     Eigen::MatrixXd masked_jacobian(total_pos*3+total_vel*3+NUM_LEG, EKF_STATE_SIZE);
-    //     Eigen::MatrixXd masked_measure_noise(total_pos*3+total_vel*3+NUM_LEG, total_pos*3+total_vel*3+NUM_LEG);
-    //     masked_measure_noise.setZero();
-    //     masked_jacobian.setZero();
-    //     int idx_pos = 0, idx_vel  = 0;
-    //     for (int i = 0; i < NUM_LEG; ++i) {
-    //         if (pos_mask[i] == true) {
-    //             masked_measurement.segment<3>(idx_pos*3) = measurement.segment<3>(i*OBS_PER_LEG);
-    //             // masked_S.block<3,3>(idx_pos*3, idx_pos*3) = S.block<3,3>(i*6, i*6);
-    //             masked_measure_noise.block<3,3>(idx_pos*3, idx_pos*3) = measure_noise.block<3,3>(i*OBS_PER_LEG, i*OBS_PER_LEG);
-    //             masked_jacobian.block<3,EKF_STATE_SIZE>(idx_pos*3, 0) = measurement_jacobian.block<3,EKF_STATE_SIZE>(i*OBS_PER_LEG, 0);
-    //             idx_pos++;
-    //         }
-
-    //         if (vel_mask[i] == true) {
-    //             masked_measurement.segment<3>(total_pos*3+idx_vel*3) = measurement.segment<3>(i*OBS_PER_LEG+3);
-    //             // masked_S.block<3,3>(total_pos*3+idx_vel*3, total_pos*3+idx_vel*3) = S.block<3,3>(i*6+3, i*6+3);
-    //             masked_measure_noise.block<3,3>(total_pos*3+idx_vel*3, total_pos*3+idx_vel*3) = measure_noise.block<3,3>(i*OBS_PER_LEG+3, i*OBS_PER_LEG+3);
-    //             masked_jacobian.block<3,EKF_STATE_SIZE>(total_pos*3+idx_vel*3, 0) = measurement_jacobian.block<3,EKF_STATE_SIZE>(i*OBS_PER_LEG+3, 0);
-    //             idx_vel++;
-    //         }
-    //         // foot height
-    //         masked_measurement(total_pos*3+idx_vel*3+i) = measurement(i*OBS_PER_LEG+6);
-    //         masked_measure_noise(total_pos*3+idx_vel*3+i, total_pos*3+idx_vel*3+i) = measure_noise(i*OBS_PER_LEG+6, i*OBS_PER_LEG+6);
-    //         masked_jacobian.block<1,EKF_STATE_SIZE>(total_pos*3+idx_vel*3+i, 0) = measurement_jacobian.block<1,EKF_STATE_SIZE>(i*OBS_PER_LEG+6, 0);
-
-    //     }
-    //     Eigen::MatrixXd masked_S = masked_jacobian*P01*masked_jacobian.transpose() + masked_measure_noise;
-    //     Eigen::VectorXd masked_invSy = masked_S.fullPivHouseholderQr().solve(masked_measurement);
-
-    //     Eigen::Matrix<double, EKF_STATE_SIZE,1> update =  P01*masked_jacobian.transpose()*masked_invSy;
-    //     curr_state = x01 - update;
-
-    //     Eigen::MatrixXd  invSH = masked_S.fullPivHouseholderQr().solve(masked_jacobian);
-
-    //     curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - P01*masked_jacobian.transpose()*invSH)*P01;
-
-    //     curr_covariance = (curr_covariance + curr_covariance.transpose()) / 2;
-    // } else {
-    //     //update the state and covariance directly without using measurements
-    //     curr_state = x01;
-    //     curr_covariance = P01;
-    // }
-
-    
+    S = measurement_jacobian * P01 * measurement_jacobian.transpose() + measure_noise;
+   
     Eigen::VectorXd invSy = S.fullPivHouseholderQr().solve(measurement);
     double mahalanobis_distance = measurement.transpose()*invSy;
     if ( mahalanobis_distance< 100) {
@@ -234,34 +137,28 @@ void A1KFCombineLOWithFootTerrain::update_filter(A1SensorData& data) {
     return;
 }
 
-
-
 // update state using opti track data
 void A1KFCombineLOWithFootTerrain::update_filter_with_opti(A1SensorData& data) {
-    // const std::lock_guard<std::mutex> lock(update_mutex);
     update_mutex.lock();
 
     // actual measurement
     Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, 1> opti_meas;
     opti_meas << data.opti_pos, data.opti_vel, data.opti_euler(2);
-    Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, 1> opti_residual = opti_meas - opti_jacobian*curr_state;
-    // 
-    Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, OPTI_OBSERVATION_SIZE> S = opti_jacobian*curr_covariance*opti_jacobian.transpose() + opti_noise;
-
+    Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, 1> opti_residual = opti_meas - opti_jacobian * curr_state;
+    Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, OPTI_OBSERVATION_SIZE> S = opti_jacobian * curr_covariance * opti_jacobian.transpose() + opti_noise;
     Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, 1> invSy = S.fullPivHouseholderQr().solve(opti_residual);
     
     // outlier rejection
-    double mahalanobis_distance = opti_residual.transpose()*invSy;
+    double mahalanobis_distance = opti_residual.transpose() * invSy;
     if (mahalanobis_distance < 5.0) {
-        Eigen::Matrix<double, EKF_STATE_SIZE, 1> Ky = curr_covariance*opti_jacobian.transpose()*invSy;
-        curr_state += Ky;      
-        Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, EKF_STATE_SIZE>  invSH = S.fullPivHouseholderQr().solve(opti_jacobian);
-
-        curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - curr_covariance*opti_jacobian.transpose()*invSH)*curr_covariance;  
+        Eigen::Matrix<double, EKF_STATE_SIZE, 1> Ky = curr_covariance * opti_jacobian.transpose() * invSy;
+        curr_state += Ky;
+        Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, EKF_STATE_SIZE> invSH = S.fullPivHouseholderQr().solve(opti_jacobian);
+        curr_covariance = (Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() - curr_covariance * opti_jacobian.transpose() * invSH)
+                          * curr_covariance;
     }
     update_mutex.unlock();
 }
-
 
 void A1KFCombineLOWithFootTerrain::set_noise_params(double _inital_cov,
                         double _noise_process_pos_xy,
@@ -275,6 +172,8 @@ void A1KFCombineLOWithFootTerrain::set_noise_params(double _inital_cov,
                         double _noise_measure_height,
                         double _noise_opti_pos,
                         double _noise_opti_vel,
+                        double _noise_opti_roll,
+                        double _noise_opti_pitch,
                         double _noise_opti_yaw) {
 
     inital_cov = _inital_cov;
@@ -291,6 +190,8 @@ void A1KFCombineLOWithFootTerrain::set_noise_params(double _inital_cov,
 
     noise_opti_pos = _noise_opti_pos;
     noise_opti_vel = _noise_opti_vel;
+    noise_opti_roll = _noise_opti_roll;
+    noise_opti_pitch = _noise_opti_pitch;
     noise_opti_yaw = _noise_opti_yaw;          
 
     return;              
@@ -342,7 +243,6 @@ void A1KFCombineLOWithFootTerrain::process(Eigen::Matrix<double, EKF_STATE_SIZE,
 
     return;
 }
-
 
 void A1KFCombineLOWithFootTerrain::measure(Eigen::Matrix<double, EKF_STATE_SIZE, 1> state, 
                                                      Eigen::Matrix<double, 3, 1> w, 
