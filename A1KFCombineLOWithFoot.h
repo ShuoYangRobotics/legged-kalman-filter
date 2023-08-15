@@ -30,6 +30,7 @@
 #define EKF_STATE_SIZE 22
 #define CONTROL_SIZE 7
 #define OBSERVATION_SIZE 24   
+#define OBS_PER_LEG 6
 
 #define OPTI_OBSERVATION_SIZE 7 // observe position, velocity, and yaw using optitrack
 #define UPDATE_DT 0.002
@@ -45,6 +46,20 @@ class A1KFCombineLOWithFoot : public A1KF {
         Eigen::Matrix<double, EKF_STATE_SIZE,1> get_state() {return curr_state;}
         Eigen::Matrix<double, NUM_LEG, 1> get_contacts() {return estimated_contact;}
 
+        void set_noise_params(double _inital_cov = 0.01,
+                              double _noise_process_pos_xy = 0.001,
+                              double _noise_process_pos_z = 0.001,
+                              double _noise_process_vel_xy = 0.001,
+                              double _noise_process_vel_z = 0.01,
+                              double _noise_process_rot = 1e-6,
+                              double _noise_process_foot = 0.001,
+                              double _noise_measure_fk = 0.01,
+                              double _noise_measure_vel = 0.01,
+                              double _noise_measure_height = 0.0001,
+                              double _noise_opti_pos = 0.001,
+                              double _noise_opti_vel = 999.0,
+                              double _noise_opti_yaw = 0.01);
+        
     private:
         void load_casadi_functions();
         void process(Eigen::Matrix<double, EKF_STATE_SIZE, 1> state, 
@@ -72,10 +87,26 @@ class A1KFCombineLOWithFoot : public A1KF {
         Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>   process_noise;
         Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE>   measure_noise;
 
-
         // optitrack related 
         Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, EKF_STATE_SIZE> opti_jacobian;
         Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, OPTI_OBSERVATION_SIZE> opti_noise;
+
+        // noise constants
+        double inital_cov = 0.001;
+        double noise_process_pos_xy = 0.001;
+        double noise_process_pos_z = 0.001;
+        double noise_process_vel_xy = 0.001;
+        double noise_process_vel_z = 0.001;
+        double noise_process_rot = 1e-6;
+        double noise_process_foot = 0.0001;
+
+        double noise_measure_fk = 0.01;
+        double noise_measure_vel = 0.01;
+        double noise_measure_height = 0.1;
+
+        double noise_opti_pos = 0.001;
+        double noise_opti_vel = 999.0;
+        double noise_opti_yaw = 0.01;
 
         std::mutex update_mutex;
 
