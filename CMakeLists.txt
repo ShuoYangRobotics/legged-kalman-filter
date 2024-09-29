@@ -9,7 +9,7 @@ find_package(gram_savitzky_golay REQUIRED)
 
 # add pinocchio 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(pinocchio REQUIRED pinocchio)
+# pkg_check_modules(pinocchio REQUIRED pinocchio)
 find_package(Boost REQUIRED)
 
 include_directories(
